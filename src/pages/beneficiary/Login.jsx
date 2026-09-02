@@ -37,7 +37,9 @@ function Login({ onLoginSuccess, onBack }) {
         }
       );
 
-      const data = await response.json();
+      const text = await response.text();
+
+      const data = text ? JSON.parse(text) : {};
 
       if (!response.ok) {
         throw new Error(
@@ -48,15 +50,19 @@ function Login({ onLoginSuccess, onBack }) {
       console.log("Login response:", data);
 
       // Store JWT token
-      localStorage.setItem("token", data.token);
+        // Store JWT token
+    localStorage.setItem("token", data.token);
 
-      // Store logged-in user information if returned
-      if (data.user) {
-        localStorage.setItem(
-          "user",
-          JSON.stringify(data.user)
-        );
-      }
+    // Store logged-in user information
+    localStorage.setItem(
+      "user",
+      JSON.stringify({
+        userId: data.userId,
+        name: data.name,
+        email: data.email,
+        role: data.role,
+      })
+    );
 
       alert("Login successful!");
 

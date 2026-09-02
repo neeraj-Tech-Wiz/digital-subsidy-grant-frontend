@@ -9,7 +9,65 @@ function SchemeList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Fetch active schemes from backend
+  // =========================
+  // FORMAT CRITERIA VALUE
+  // =========================
+  const formatCriterionValue = (criterion) => {
+    const name = criterion.criterionName?.toLowerCase() || "";
+    const value = criterion.expectedValue;
+
+    if (value === null || value === undefined || value === "") {
+      return "";
+    }
+
+    // Income
+    if (name.includes("income")) {
+      return `≤ ₹${Number(value).toLocaleString("en-IN")}`;
+    }
+
+    // Land / Asset
+    if (name.includes("land") || name.includes("asset")) {
+      return `≤ ${value} Acres`;
+    }
+
+    // Category
+    if (name.includes("category")) {
+      return value;
+    }
+
+    // Document
+    if (name.includes("document")) {
+      return value === true || value === "true"
+        ? "Required"
+        : "Not Required";
+    }
+
+    // Region
+    if (name.includes("region") || name.includes("location")) {
+      return value;
+    }
+
+    // Previous Benefit
+    if (name.includes("previous") || name.includes("benefit")) {
+      return value === false || value === "false"
+        ? "No Previous Benefit"
+        : "Previous Benefit Allowed";
+    }
+
+    // Identity Verification
+    if (name.includes("identity") || name.includes("verification")) {
+      return value === true || value === "true"
+        ? "Verified"
+        : "Not Verified";
+    }
+
+    // Default
+    return value;
+  };
+
+  // =========================
+  // FETCH ACTIVE SCHEMES
+  // =========================
   useEffect(() => {
     const fetchSchemes = async () => {
       try {
@@ -55,7 +113,9 @@ function SchemeList() {
     fetchSchemes();
   }, []);
 
-  // Get unique categories from backend schemes
+  // =========================
+  // GET UNIQUE CATEGORIES
+  // =========================
   const categories = [
     "All",
     ...new Set(
@@ -65,7 +125,9 @@ function SchemeList() {
     ),
   ];
 
-  // Search and category filtering
+  // =========================
+  // SEARCH + CATEGORY FILTER
+  // =========================
   const filteredSchemes = schemes.filter((scheme) => {
     const schemeName = scheme.schemeName || "";
     const schemeCode = scheme.schemeCode || "";
@@ -81,7 +143,9 @@ function SchemeList() {
     return matchesSearch && matchesCategory;
   });
 
-  // Loading
+  // =========================
+  // LOADING
+  // =========================
   if (loading) {
     return (
       <div className="scheme-page">
@@ -94,7 +158,9 @@ function SchemeList() {
     );
   }
 
-  // Error
+  // =========================
+  // ERROR
+  // =========================
   if (error) {
     return (
       <div className="scheme-page">
@@ -172,13 +238,19 @@ function SchemeList() {
                   {scheme.schemeCode}
                 </span>
 
-                <span className="status active">
+                <span
+                  className={`status ${
+                    scheme.status?.toLowerCase() === "active"
+                      ? "active"
+                      : "inactive"
+                  }`}
+                >
                   {scheme.status}
                 </span>
 
               </div>
 
-              {/* NAME */}
+              {/* SCHEME NAME */}
               <h3>
                 {scheme.schemeName}
               </h3>
@@ -217,90 +289,103 @@ function SchemeList() {
 
               </div>
 
-              {/* ELIGIBILITY CRITERIA */}
-              <div className="eligibility-section">
+             {/* ELIGIBILITY CRITERIA */}
+            <div className="eligibility-section">
+              <h4>Eligibility Criteria</h4>
 
-                <h4>
-                  Eligibility Criteria
-                </h4>
+              {scheme.criteriaList &&
+              scheme.criteriaList.filter(
+                (criterion) => criterion.active !== false
+              ).length > 0 ? (
 
-                {scheme.criteriaList &&
-                scheme.criteriaList.length > 0 ? (
+                <div className="criteria-list">
 
-                  <div className="criteria-list">
+                  {scheme.criteriaList
+                    .filter(
+                      (criterion) => criterion.active !== false
+                    )
+                    .map((criterion) => (
 
-                    {scheme.criteriaList
-                      .filter(
-                        (criterion) =>
-                          criterion.active !== false
-                      )
-                      .map((criterion) => (
+                      <div
+                        className="criterion-item"
+                        key={criterion.id}
+                      >
 
-                        <div
-                          className="criterion-item"
-                          key={criterion.id}
-                        >
+                        {/* TOP ROW */}
+                        <div className="criterion-header">
 
                           <div className="criterion-title">
+                            <span className="criterion-check">✓</span>
 
-                            <span className="criterion-check">
-                              ✓
-                            </span>
-
-                            <strong>
+                            <span className="criterion-name">
                               {criterion.criterionName}
-                            </strong>
-
-                            {criterion.mandatory && (
-                              <span className="mandatory-label">
-                                Mandatory
-                              </span>
-                            )}
-
+                            </span>
                           </div>
 
-                          {criterion.description && (
-                            <p>
-                              {criterion.description}
-                            </p>
+                          {criterion.mandatory && (
+                            <span className="mandatory-label">
+                              Mandatory
+                            </span>
                           )}
-
-                          <div className="criterion-details">
-
-                            {criterion.criterionType && (
-                              <span>
-                                Type:{" "}
-                                {criterion.criterionType}
-                              </span>
-                            )}
-
-                            {criterion.operator &&
-                              criterion.expectedValue && (
-                                <span>
-                                  Requirement:{" "}
-                                  {criterion.operator}{" "}
-                                  {criterion.expectedValue}
-                                </span>
-                              )}
-
-                          </div>
 
                         </div>
 
-                      ))}
+                        {/* REQUIREMENT */}
+                        <div className="criterion-value">
 
-                  </div>
+                          {criterion.operator === "LESS_THAN_EQUAL" && (
+                            <>
+                              ≤ {criterion.expectedValue}
+                            </>
+                          )}
 
-                ) : (
+                          {criterion.operator === "LESS_THAN" && (
+                            <>
+                              &lt; {criterion.expectedValue}
+                            </>
+                          )}
 
-                  <p className="no-criteria">
-                    No eligibility criteria available.
-                  </p>
+                          {criterion.operator === "GREATER_THAN_EQUAL" && (
+                            <>
+                              ≥ {criterion.expectedValue}
+                            </>
+                          )}
 
-                )}
+                          {criterion.operator === "GREATER_THAN" && (
+                            <>
+                              &gt; {criterion.expectedValue}
+                            </>
+                          )}
 
-              </div>
+                          {criterion.operator === "EQUAL" && (
+                            <>
+                              {criterion.expectedValue}
+                            </>
+                          )}
 
+                          {!criterion.operator && (
+                            <>
+                              {criterion.expectedValue}
+                            </>
+                          )}
+
+                        </div>
+
+                      </div>
+
+                    ))}
+
+                </div>
+
+              ) : (
+
+                <p className="no-criteria">
+                  No eligibility criteria available.
+                </p>
+
+              )}
+
+            </div>
             </div>
 
           ))}

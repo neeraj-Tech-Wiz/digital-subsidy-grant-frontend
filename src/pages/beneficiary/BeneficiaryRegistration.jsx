@@ -19,41 +19,90 @@ function BeneficiaryRegistration() {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
   e.preventDefault();
 
-  const existingBeneficiaries =
-    JSON.parse(localStorage.getItem("beneficiaries")) || [];
+  try {
+    const token = localStorage.getItem("token");
 
-  const newBeneficiary = {
-    id: `B${String(existingBeneficiaries.length + 1).padStart(3, "0")}`,
-    ...formData,
-  };
+    if (!token) {
+      alert("Please login first.");
+      return;
+    }
 
-  const updatedBeneficiaries = [
-    ...existingBeneficiaries,
-    newBeneficiary,
-  ];
+    const response = await fetch(
+      "http://localhost:8080/api/beneficiaries",
+      {
+        method: "POST",
 
-  localStorage.setItem(
-    "beneficiaries",
-    JSON.stringify(updatedBeneficiaries)
-  );
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
 
-  console.log("Mock Beneficiary Data:", newBeneficiary);
+        body: JSON.stringify({
+          name: formData.name,
+          fatherName: formData.fatherName,
+          gender: formData.gender,
+          age: Number(formData.age),
+          email: formData.email,
 
-  alert("Beneficiary registered successfully!");
+          mobileNumber: formData.mobile,
 
-  setFormData({
-    name: "",
-    fatherName: "",
-    gender: "",
-    age: "",
-    email: "",
-    mobile: "",
-    governmentId: "",
-    address: "",
-  });
+          aadhaarNumber: formData.governmentId,
+
+          address: formData.address,
+        }),
+      }
+    );
+
+    const contentType =
+      response.headers.get("content-type");
+
+    let data = {};
+
+    if (
+      contentType &&
+      contentType.includes("application/json")
+    ) {
+      data = await response.json();
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+        data.error ||
+        "Beneficiary registration failed"
+      );
+    }
+
+    console.log(
+      "Beneficiary saved successfully:",
+      data
+    );
+
+    alert("Beneficiary registered successfully!");
+
+    setFormData({
+      name: "",
+      fatherName: "",
+      gender: "",
+      age: "",
+      email: "",
+      mobile: "",
+      governmentId: "",
+      address: "",
+    });
+
+  } catch (error) {
+
+    console.error(
+      "Beneficiary registration error:",
+      error
+    );
+
+    alert(error.message);
+  }
 };
 
   return (
