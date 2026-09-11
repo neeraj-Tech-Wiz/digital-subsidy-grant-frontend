@@ -12,6 +12,8 @@ function BeneficiaryRegistration() {
     address: "",
   });
 
+  const [loading, setLoading] = useState(false);
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -20,104 +22,134 @@ function BeneficiaryRegistration() {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  try {
-    const token = localStorage.getItem("token");
+    try {
+      setLoading(true);
 
-    if (!token) {
-      alert("Please login first.");
-      return;
-    }
+      const token = localStorage.getItem("token");
 
-    const response = await fetch(
-      "http://localhost:8080/api/beneficiaries",
-      {
-        method: "POST",
-
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-
-        body: JSON.stringify({
-          name: formData.name,
-          fatherName: formData.fatherName,
-          gender: formData.gender,
-          age: Number(formData.age),
-          email: formData.email,
-
-          mobileNumber: formData.mobile,
-
-          aadhaarNumber: formData.governmentId,
-
-          address: formData.address,
-        }),
+      if (!token) {
+        alert("Please login first.");
+        return;
       }
-    );
 
-    const contentType =
-      response.headers.get("content-type");
+      const response = await fetch(
+        "http://localhost:8080/api/beneficiaries",
+        {
+          method: "POST",
 
-    let data = {};
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
 
-    if (
-      contentType &&
-      contentType.includes("application/json")
-    ) {
-      data = await response.json();
-    }
+          body: JSON.stringify({
+            name: formData.name,
+            fatherName: formData.fatherName,
+            gender: formData.gender,
+            age: Number(formData.age),
+            email: formData.email,
 
-    if (!response.ok) {
-      throw new Error(
-        data.message ||
-        data.error ||
-        "Beneficiary registration failed"
+            mobileNumber: formData.mobile,
+
+            aadhaarNumber: formData.governmentId,
+
+            address: formData.address,
+          }),
+        }
       );
+
+      const contentType = response.headers.get("content-type");
+
+      let data = {};
+
+      if (
+        contentType &&
+        contentType.includes("application/json")
+      ) {
+        data = await response.json();
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+          data.error ||
+          "Beneficiary registration failed"
+        );
+      }
+
+      console.log(
+        "Beneficiary saved successfully:",
+        data
+      );
+
+      // ==========================================
+      // SAVE BENEFICIARY ID FOR SCHEME APPLICATION
+      // ==========================================
+
+      if (data.id) {
+        localStorage.setItem(
+          "beneficiaryId",
+          String(data.id)
+        );
+
+        console.log(
+          "Beneficiary ID saved:",
+          data.id
+        );
+      }
+
+      alert(
+        "Beneficiary registered successfully!"
+      );
+
+      // Clear form
+      setFormData({
+        name: "",
+        fatherName: "",
+        gender: "",
+        age: "",
+        email: "",
+        mobile: "",
+        governmentId: "",
+        address: "",
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Beneficiary registration error:",
+        error
+      );
+
+      alert(error.message);
+
+    } finally {
+
+      setLoading(false);
+
     }
-
-    console.log(
-      "Beneficiary saved successfully:",
-      data
-    );
-
-    alert("Beneficiary registered successfully!");
-
-    setFormData({
-      name: "",
-      fatherName: "",
-      gender: "",
-      age: "",
-      email: "",
-      mobile: "",
-      governmentId: "",
-      address: "",
-    });
-
-  } catch (error) {
-
-    console.error(
-      "Beneficiary registration error:",
-      error
-    );
-
-    alert(error.message);
-  }
-};
+  };
 
   return (
     <div className="beneficiary-page">
+
       <div className="page-header">
         <h1>Subsidy Management System</h1>
         <p>Beneficiary Registration</p>
       </div>
 
       <div className="form-card">
+
         <h2>Register Beneficiary</h2>
 
         <form onSubmit={handleSubmit}>
+
+          {/* NAME */}
           <div className="form-group">
             <label>Name</label>
+
             <input
               type="text"
               name="name"
@@ -128,8 +160,11 @@ function BeneficiaryRegistration() {
             />
           </div>
 
+
+          {/* FATHER NAME */}
           <div className="form-group">
             <label>Father Name</label>
+
             <input
               type="text"
               name="fatherName"
@@ -140,23 +175,40 @@ function BeneficiaryRegistration() {
             />
           </div>
 
+
+          {/* GENDER */}
           <div className="form-group">
             <label>Gender</label>
+
             <select
               name="gender"
               value={formData.gender}
               onChange={handleChange}
               required
             >
-              <option value="">Select Gender</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-              <option value="Other">Other</option>
+              <option value="">
+                Select Gender
+              </option>
+
+              <option value="Male">
+                Male
+              </option>
+
+              <option value="Female">
+                Female
+              </option>
+
+              <option value="Other">
+                Other
+              </option>
             </select>
           </div>
 
+
+          {/* AGE */}
           <div className="form-group">
             <label>Age</label>
+
             <input
               type="number"
               name="age"
@@ -166,11 +218,17 @@ function BeneficiaryRegistration() {
               onChange={handleChange}
               required
             />
-            <small>Eligible age: 18 years and above</small>
+
+            <small>
+              Eligible age: 18 years and above
+            </small>
           </div>
 
+
+          {/* EMAIL */}
           <div className="form-group">
             <label>Email</label>
+
             <input
               type="email"
               name="email"
@@ -181,8 +239,11 @@ function BeneficiaryRegistration() {
             />
           </div>
 
+
+          {/* MOBILE */}
           <div className="form-group">
             <label>Mobile Number</label>
+
             <input
               type="tel"
               name="mobile"
@@ -194,8 +255,13 @@ function BeneficiaryRegistration() {
             />
           </div>
 
+
+          {/* AADHAAR */}
           <div className="form-group">
-            <label>Government ID / Aadhaar Number</label>
+            <label>
+              Government ID / Aadhaar Number
+            </label>
+
             <input
               type="text"
               name="governmentId"
@@ -207,8 +273,11 @@ function BeneficiaryRegistration() {
             />
           </div>
 
+
+          {/* ADDRESS */}
           <div className="form-group">
             <label>Address</label>
+
             <textarea
               name="address"
               placeholder="Enter address"
@@ -219,11 +288,22 @@ function BeneficiaryRegistration() {
             />
           </div>
 
-          <button type="submit" className="register-btn">
-            Register Beneficiary
+
+          {/* SUBMIT */}
+          <button
+            type="submit"
+            className="register-btn"
+            disabled={loading}
+          >
+            {loading
+              ? "Registering..."
+              : "Register Beneficiary"}
           </button>
+
         </form>
+
       </div>
+
     </div>
   );
 }

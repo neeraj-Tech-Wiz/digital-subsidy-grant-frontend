@@ -38,7 +38,6 @@ function Login({ onLoginSuccess, onBack }) {
       );
 
       const text = await response.text();
-
       const data = text ? JSON.parse(text) : {};
 
       if (!response.ok) {
@@ -50,25 +49,27 @@ function Login({ onLoginSuccess, onBack }) {
       console.log("Login response:", data);
 
       // Store JWT token
-        // Store JWT token
-    localStorage.setItem("token", data.token);
+      localStorage.setItem("token", data.token);
 
-    // Store logged-in user information
-    localStorage.setItem(
-      "user",
-      JSON.stringify({
+      // Create logged-in user object
+      const loggedInUser = {
         userId: data.userId,
         name: data.name,
         email: data.email,
         role: data.role,
-      })
-    );
+      };
+
+      // Store logged-in user information
+      localStorage.setItem(
+        "user",
+        JSON.stringify(loggedInUser)
+      );
 
       alert("Login successful!");
 
-      // Open beneficiary dashboard
+      // Send user information to App.jsx
       if (onLoginSuccess) {
-        onLoginSuccess();
+        onLoginSuccess(loggedInUser);
       }
 
     } catch (error) {
@@ -84,7 +85,7 @@ function Login({ onLoginSuccess, onBack }) {
 
       <div className="simple-card">
 
-        <h1>Beneficiary Login</h1>
+        <h1>Login</h1>
 
         <p>
           Login using your registered email and password.
