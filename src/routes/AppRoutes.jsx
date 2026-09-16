@@ -22,6 +22,13 @@ import OfficerApplicationReview from "../pages/officer/OfficerApplicationReview"
 import Unauthorized from "../pages/common/Unauthorized";
 import NotFound from "../pages/common/NotFound";
 
+// Grant Officer Pages
+import GrantOfficerLayout from "../layouts/GrantOfficerLayout";
+import GrantOfficerDashboard from "../pages/grant-officer/GrantOfficerDashboard";
+import PendingGrants from "../pages/grant-officer/PendingGrants";
+import GrantHistory from "../pages/grant-officer/GrantHistory";
+import GrantApplicationDetails from "../pages/grant-officer/GrantApplicationDetails";
+
 // Routes Guards
 import ProtectedRoute from "./ProtectedRoute";
 import RoleBasedRoute from "./RoleBasedRoute";
@@ -217,6 +224,23 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
+      {/* Protected Grant Officer Routes */}
+      <Route
+        path="/grant-officer"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute allowedRoles={["GRANT_OFFICER", "ADMIN"]}>
+              <GrantOfficerLayout />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      >
+        <Route path="dashboard" element={<GrantOfficerDashboard />} />
+        <Route path="pending" element={<PendingGrants />} />
+        <Route path="history" element={<GrantHistory />} />
+        <Route path="applications/:applicationId/disburse" element={<GrantApplicationDetails />} />
+      </Route>
 
       {/* Catch All Not Found */}
       <Route path="*" element={<NotFound />} />

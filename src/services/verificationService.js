@@ -37,5 +37,18 @@ export const verificationService = {
             remarks
         });
         return response.data;
+    },
+    verifyEligibility: async (applicationId, action, remarks) => {
+        const response = await axiosInstance.put(`/verifications/applications/${applicationId}/eligibility`, {
+            action,
+            remarks
+        });
+        return response.data;
+    },
+    returnToApplicant: async (applicationId, remarks) => {
+        const response = await axiosInstance.put(`/verifications/applications/${applicationId}/return-to-applicant`, {
+            remarks
+        });
+        return response.data;
     }
 };

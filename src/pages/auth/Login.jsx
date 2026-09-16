@@ -24,6 +24,8 @@ function Login() {
       case "LEVEL_3_OFFICER":
       case "FINAL_APPROVAL_OFFICER":
         return "/officer/dashboard";
+      case "GRANT_OFFICER":
+        return "/grant-officer/dashboard";
       default: return "/unauthorized";
     }
   };

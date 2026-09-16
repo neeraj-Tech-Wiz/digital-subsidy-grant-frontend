@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { schemeService } from '../../services/schemeService';
 import { beneficiaryService } from '../../services/beneficiaryService';
+import { applicationService } from '../../services/applicationService';
+import { formatIndianCurrency } from '../../utils/currencyFormatting';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
@@ -10,6 +12,9 @@ const BeneficiaryDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [profileExists, setProfileExists] = useState(true);
+    const [myGrants, setMyGrants] = useState([]);
+    const [totalReceived, setTotalReceived] = useState(0);
+    const [schemesMap, setSchemesMap] = useState({});
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -29,6 +34,19 @@ const BeneficiaryDashboard = () => {
                 // 2. Load schemes
                 const activeSchemes = await schemeService.getActiveSchemes();
                 setSchemes(activeSchemes);
+                const smap = {};
+                activeSchemes.forEach(s => smap[s.id] = s.schemeName);
+                setSchemesMap(smap);
+
+                // 3. Load grants if profile exists
+                try {
+                    const grants = await applicationService.getMyGrants();
+                    setMyGrants(grants || []);
+                    const total = (grants || []).reduce((acc, g) => acc + (g.grantAmount || 0), 0);
+                    setTotalReceived(total);
+                } catch (gErr) {
+                    console.error('Failed to load grants:', gErr);
+                }
             } catch (err) {
                 setError(err.message);
             } finally {
@@ -77,9 +95,7 @@ const BeneficiaryDashboard = () => {
             <div className="stat-row">
                 <div className="dash-stat-card">
                     <div className="dash-stat-icon blue">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
-                        </svg>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
                     </div>
                     <div className="dash-stat-body">
                         <div className="dash-stat-number">{loading ? '—' : schemes.length}</div>
@@ -87,29 +103,72 @@ const BeneficiaryDashboard = () => {
                     </div>
                 </div>
                 <div className="dash-stat-card">
-                    <div className="dash-stat-icon green">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                        </svg>
+                    <div className="dash-stat-icon green" style={{ background: '#ecfdf5', color: '#10b981' }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
                     </div>
                     <div className="dash-stat-body">
-                        <div className="dash-stat-number">3</div>
-                        <div className="dash-stat-label">Verification Levels</div>
+                        <div className="dash-stat-number">{loading ? '—' : myGrants.length}</div>
+                        <div className="dash-stat-label" style={{ fontWeight: 800 }}>GRANTS RECEIVED</div>
                     </div>
                 </div>
-                <div className="dash-stat-card">
-                    <div className="dash-stat-icon purple">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                        </svg>
+                <div className="dash-stat-card border-emerald">
+                    <div className="dash-stat-icon purple" style={{ background: '#f0fdf4', color: '#059669' }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
                     </div>
                     <div className="dash-stat-body">
-                        <div className="dash-stat-number">100%</div>
-                        <div className="dash-stat-label">Digital Process</div>
+                        <div className="dash-stat-number" style={{ color: '#047857' }}>{loading ? '—' : formatIndianCurrency(totalReceived)}</div>
+                        <div className="dash-stat-label" style={{ fontWeight: 800 }}>TOTAL AMOUNT RECEIVED</div>
                     </div>
                 </div>
             </div>
+
+            {/* Recent Grant Card */}
+            {myGrants.length > 0 && (
+                <div className="portal-card" style={{ marginBottom: '24px', borderLeft: '4px solid #10b981' }}>
+                    <div className="portal-card-header" style={{ paddingBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
+                                Recent Grant Disbursed
+                            </h2>
+                        </div>
+                        <span className="badge badge-emerald">DISBURSED</span>
+                    </div>
+                    <div className="portal-card-body" style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0', padding: '24px 28px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '24px' }}>
+                            <div>
+                                <p style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Scheme</p>
+                                <p style={{ fontSize: '15px', fontWeight: '600', color: '#0f172a' }}>{schemesMap[myGrants[0].schemeId] || 'Subsidy Scheme'}</p>
+                            </div>
+                            <div>
+                                <p style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Amount</p>
+                                <p style={{ fontSize: '18px', fontWeight: '800', color: '#10b981' }}>{formatIndianCurrency(myGrants[0].grantAmount)}</p>
+                            </div>
+                            <div>
+                                <p style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Disbursed Date</p>
+                                <p style={{ fontSize: '14px', fontWeight: '500', color: '#334155' }}>
+                                    {new Date(myGrants[0].disbursedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </p>
+                            </div>
+                            <div>
+                                <p style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Application ID</p>
+                                <p style={{ fontSize: '14px', fontWeight: '600', color: '#334155' }}>APP-{myGrants[0].applicationId}</p>
+                            </div>
+                            <div style={{ gridColumn: 'span 2' }}>
+                                <p style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Transaction Reference</p>
+                                <p style={{ fontSize: '14px', fontFamily: 'monospace', color: '#0f172a', background: '#e2e8f0', padding: '4px 8px', borderRadius: '4px', display: 'inline-block' }}>
+                                    {myGrants[0].transactionReference}
+                                </p>
+                            </div>
+                        </div>
+                        <div style={{ marginTop: '20px' }}>
+                            <NavLink to={`/beneficiary/applications/${myGrants[0].applicationId}`} className="btn btn-outline btn-sm">
+                                View Full Application Receipt →
+                            </NavLink>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Quick Actions */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>

@@ -15,7 +15,10 @@ const STATUS_CONFIG = {
 
 const formatDate = (ds) => {
     if (!ds) return 'N/A';
-    return new Date(ds).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    return new Date(ds).toLocaleDateString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
 };
 
 function OfficerApplicationReview() {
@@ -55,29 +58,62 @@ function OfficerApplicationReview() {
         setSubmitting(true);
         try {
             await verificationService.verifyApplication(applicationId, approved, remarks);
-            setSuccessMessage(approved ? 'Application verified successfully.' : 'Application rejected successfully.');
-            setTimeout(() => {
-                navigate('/officer/dashboard');
-            }, 2000);
+            setSuccessMessage(approved ? 'Action submitted successfully.' : 'Application rejected successfully.');
+            setTimeout(() => { navigate('/officer/dashboard'); }, 2000);
         } catch (err) {
             alert(err.response?.data?.message || 'Verification action failed.');
             setSubmitting(false);
         }
     };
 
+    const handleEligibilityAction = async (action) => {
+        if (!remarks.trim()) {
+            alert('Please provide remarks before submitting eligibility verification.');
+            return;
+        }
+
+        const calcScore = details.eligibilityDetails?.reduce((sum, item) => sum + item.points, 0) || 0;
+        if (action === 'VERIFIED' && calcScore !== details.eligibilityScore) {
+            alert(`Score mismatch. Calculated: ${calcScore}, Application: ${details.eligibilityScore}. Cannot verify.`);
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            await verificationService.verifyEligibility(applicationId, action, remarks);
+            setSuccessMessage(action === 'VERIFIED' ? 'Eligibility independently verified.' : 'Eligibility rejected.');
+            setTimeout(() => { navigate('/officer/dashboard'); }, 2000);
+        } catch (err) {
+            alert(err.response?.data?.message || 'Eligibility verification failed.');
+            setSubmitting(false);
+        }
+    }
+
+    const handleReturnToApplicant = async () => {
+        if (!remarks.trim()) {
+            alert('Please provide remarks indicating which documents or details are missing.');
+            return;
+        }
+        setSubmitting(true);
+        try {
+            await verificationService.returnToApplicant(applicationId, remarks);
+            setSuccessMessage('Application returned to applicant successfully.');
+            setTimeout(() => { navigate('/officer/dashboard'); }, 2000);
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to return application.');
+            setSubmitting(false);
+        }
+    }
+
     const handleDocumentAction = async (documentId, fileName, action) => {
         try {
             const token = localStorage.getItem('token');
             const response = await fetch(`http://localhost:8080/api/documents/${documentId}`, {
                 method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                headers: { 'Authorization': `Bearer ${token}` }
             });
 
-            if (!response.ok) {
-                throw new Error("Failed to fetch document");
-            }
+            if (!response.ok) throw new Error("Failed to fetch document");
 
             const contentType = response.headers.get('content-type') || 'application/octet-stream';
             const blob = await response.blob();
@@ -132,6 +168,11 @@ function OfficerApplicationReview() {
     );
     if (!details) return null;
 
+    const isLevel1 = details.currentVerificationLevel === 'LEVEL_1';
+    const isLevel2 = details.currentVerificationLevel === 'LEVEL_2';
+    const isLevel3 = details.currentVerificationLevel === 'LEVEL_3';
+    const isFinalApproval = details.currentVerificationLevel === 'FINAL_APPROVAL' || (!details.currentVerificationLevel && details.status !== 'REJECTED');
+
     return (
         <div style={styles.page}>
             <div style={styles.header}>
@@ -149,8 +190,13 @@ function OfficerApplicationReview() {
                 </div>
             )}
 
+            {isLevel3 && (
+                <div style={styles.escalationWarning}>
+                    <strong>ESCALATED / OVERDUE APPLICATION:</strong> This application has been flagged for Level 3 review.
+                </div>
+            )}
+
             <div style={styles.grid}>
-                {/* Application Summary & Scheme */}
                 <div style={styles.card}>
                     <h2 style={styles.cardTitle}>Application & Scheme Summary</h2>
                     <div style={styles.dataGrid}>
@@ -162,14 +208,12 @@ function OfficerApplicationReview() {
                             </span>
                         } />
                         <DataRow label="Verification Route" value={details.verificationRoute} />
-                        <DataRow label="Current Level" value={details.currentVerificationLevel} />
+                        <DataRow label="Current Level" value={details.currentVerificationLevel || 'COMPLETED'} />
                         <DataRow label="Eligibility Score" value={details.eligibilityScore} bold />
                         <DataRow label="Application Date" value={formatDate(details.applicationDate)} />
-                        {details.verificationDueDate && <DataRow label="Verification Deadline" value={formatDate(details.verificationDueDate)} highlight />}
                     </div>
                 </div>
 
-                {/* Beneficiary Details */}
                 <div style={styles.card}>
                     <h2 style={styles.cardTitle}>Beneficiary Details</h2>
                     <div style={styles.dataGrid}>
@@ -184,14 +228,14 @@ function OfficerApplicationReview() {
                 </div>
             </div>
 
-            {/* Documents */}
+            {/* Documents Section */}
             <div style={styles.cardFull}>
-                <h2 style={styles.cardTitle}>Submitted Documents</h2>
+                <h2 style={styles.cardTitle}>{isLevel1 ? 'Document Verification' : 'Submitted Documents (Read Only)'}</h2>
                 {details.documents && details.documents.length > 0 ? (
                     <div style={styles.docList}>
                         {details.documents.map(doc => (
                             <div key={doc.documentId} style={{ ...styles.docItem, borderLeft: doc.documentStatus === 'VERIFIED' ? '4px solid #10b981' : doc.documentStatus === 'REJECTED' ? '4px solid #ef4444' : '4px solid #eab308' }}>
-                                <div>
+                                <div style={{flex: 1}}>
                                     <h4 style={styles.docType}>
                                         {doc.documentType} 
                                         <span style={{
@@ -203,8 +247,17 @@ function OfficerApplicationReview() {
                                         </span>
                                     </h4>
                                     <p style={styles.docName}>{doc.originalFileName}</p>
-                                    {doc.documentStatus === 'REJECTED' && doc.remarks && (
-                                        <p style={styles.docRemarks}>Reason: {doc.remarks}</p>
+                                    
+                                    {/* Expose Verification Details to Next Levels */}
+                                    {!isLevel1 && doc.documentStatus === 'VERIFIED' && (
+                                        <div style={styles.documentEvidence}>
+                                            <p><strong>Verified At:</strong> {formatDate(details.verificationHistory?.find(h => h.remarks?.includes(doc.documentType) && h.action === 'DOCUMENT_VERIFIED')?.actionTimestamp)}</p>
+                                        </div>
+                                    )}
+                                    {doc.documentStatus === 'REJECTED' && (
+                                        <div style={styles.documentEvidence}>
+                                            <p><strong>Rejected At:</strong> {formatDate(details.verificationHistory?.find(h => h.remarks?.includes(doc.documentType) && h.action === 'DOCUMENT_REJECTED')?.actionTimestamp)}</p>
+                                        </div>
                                     )}
                                 </div>
                                 <div style={styles.docActionsContainer}>
@@ -212,16 +265,10 @@ function OfficerApplicationReview() {
                                         <button onClick={() => handleDocumentAction(doc.documentId, doc.originalFileName, 'view')} style={styles.viewBtn}>View</button>
                                         <button onClick={() => handleDocumentAction(doc.documentId, doc.originalFileName, 'download')} style={styles.downloadBtn}>Download</button>
                                     </div>
-                                    {doc.documentStatus === 'UPLOADED' && (
+                                    {isLevel1 && doc.documentStatus === 'UPLOADED' && (
                                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                            <button 
-                                                onClick={() => handleVerifyDocument(doc.documentId, 'VERIFIED')} 
-                                                disabled={submitting}
-                                                style={styles.verifyBtn}>✓ Verify Document</button>
-                                            <button 
-                                                onClick={() => handleVerifyDocument(doc.documentId, 'REJECTED')} 
-                                                disabled={submitting}
-                                                style={styles.rejectDocBtn}>✗ Reject</button>
+                                            <button onClick={() => handleVerifyDocument(doc.documentId, 'VERIFIED')} disabled={submitting} style={styles.verifyBtn}>✓ Verify Document</button>
+                                            <button onClick={() => handleVerifyDocument(doc.documentId, 'REJECTED')} disabled={submitting} style={styles.rejectDocBtn}>✗ Reject</button>
                                         </div>
                                     )}
                                 </div>
@@ -229,39 +276,154 @@ function OfficerApplicationReview() {
                         ))}
                     </div>
                 ) : (
-                    <p style={styles.emptyText}>No documents found for this application.</p>
+                    <p style={styles.emptyText}>No documents found.</p>
                 )}
             </div>
+
+            {/* Level 2, Level 3 and Final Approval - Eligibility Breakdown */}
+            {!isLevel1 && details.eligibilityDetails && details.eligibilityDetails.length > 0 && (
+                <div style={styles.cardFull}>
+                    <h2 style={styles.cardTitle}>Eligibility Score Verification</h2>
+                    <table style={styles.table}>
+                        <thead>
+                            <tr>
+                                <th style={styles.th}>Criterion</th>
+                                <th style={styles.th}>Applicant Value</th>
+                                <th style={styles.th}>Requirement</th>
+                                <th style={styles.th}>Result</th>
+                                <th style={styles.th}>Max Points</th>
+                                <th style={styles.th}>Score Awarded</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {details.eligibilityDetails.map((item, idx) => (
+                                <tr key={idx} style={{background: item.result === 'ELIGIBLE' ? '#f0fdf4' : item.result.startsWith('OPTIONAL') ? '#fef9c3' : '#fff1f2'}}>
+                                    <td style={styles.td}>{item.criterionName}</td>
+                                    <td style={styles.td}>{item.applicantValue}</td>
+                                    <td style={styles.td}>{item.requirement}</td>
+                                    <td style={styles.td}><strong>{item.result}</strong></td>
+                                    <td style={styles.td}>{item.maxPoints}</td>
+                                    <td style={styles.td}>{item.points} / {item.maxPoints}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colSpan="4" style={{textAlign: 'right', fontWeight: 'bold', padding: '12px'}}>Total Maximum Possible Score:</td>
+                                <td colSpan="2" style={{fontWeight: 'bold', padding: '12px'}}>
+                                    {details.eligibilityDetails.reduce((sum, item) => sum + (item.maxPoints || 0), 0)}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colSpan="4" style={{textAlign: 'right', fontWeight: 'bold', padding: '12px'}}>Applicant Score:</td>
+                                <td colSpan="2" style={{fontWeight: 'bold', padding: '12px', color: details.eligibilityDetails.reduce((sum, item) => sum + item.points, 0) === details.eligibilityScore ? '#10b981' : '#ef4444'}}>
+                                    {details.eligibilityDetails.reduce((sum, item) => sum + item.points, 0)} / {details.eligibilityDetails.reduce((sum, item) => sum + (item.maxPoints || 0), 0)}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colSpan="4" style={{textAlign: 'right', fontWeight: 'bold', padding: '12px'}}>Score Percentage:</td>
+                                <td colSpan="2" style={{fontWeight: 'bold', padding: '12px'}}>
+                                    {details.eligibilityDetails.reduce((sum, item) => sum + (item.maxPoints || 0), 0) > 0 ? Math.round((details.eligibilityDetails.reduce((sum, item) => sum + item.points, 0) / details.eligibilityDetails.reduce((sum, item) => sum + (item.maxPoints || 0), 0)) * 100) : 0}%
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    
+                    <div style={{ marginTop: '16px', padding: '12px', background: details.eligibilityDetails.reduce((sum, item) => sum + item.points, 0) === details.eligibilityScore ? '#ecfdf5' : '#fef2f2', border: '1px solid', borderColor: details.eligibilityDetails.reduce((sum, item) => sum + item.points, 0) === details.eligibilityScore ? '#a7f3d0' : '#fecaca', borderRadius: '8px' }}>
+                        {details.eligibilityDetails.reduce((sum, item) => sum + item.points, 0) === details.eligibilityScore ? (
+                            <strong style={{ color: '#059669' }}>✓ SCORE MATCHES</strong>
+                        ) : (
+                            <strong style={{ color: '#dc2626' }}>
+                                ⚠ SCORE MISMATCH<br />
+                                Calculated From Criteria: {details.eligibilityDetails.reduce((sum, item) => sum + item.points, 0)}<br />
+                                Application Initial Score: {details.eligibilityScore}
+                            </strong>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Verification History Timeline for Final Approval */}
+            {isFinalApproval && details.verificationHistory && details.verificationHistory.length > 0 && (
+                <div style={styles.cardFull}>
+                    <h2 style={styles.cardTitle}>Complete Verification History Timeline</h2>
+                    <div style={styles.timeline}>
+                        {details.verificationHistory.map((hist, idx) => (
+                            <div key={idx} style={styles.timelineItem}>
+                                <div style={styles.timelineDate}>{formatDate(hist.actionTimestamp)}</div>
+                                <div style={styles.timelineContent}>
+                                    <strong>{hist.officerName}</strong> ({hist.officerRole})<br />
+                                    <span style={{ color: '#3b82f6', fontWeight: 600 }}>{hist.action}</span><br />
+                                    <span style={{ color: '#64748b' }}>{hist.remarks}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Officer Action Panel */}
             <div style={styles.actionPanel}>
                 <h2 style={styles.cardTitle}>Officer Decision</h2>
                 <div style={{ marginBottom: '16px' }}>
-                    <label style={styles.label}>Verification Remarks (Required)</label>
+                    <label style={styles.label}>
+                        {isLevel2 ? 'Eligibility Verification Remarks (Required)' : 'Verification Remarks (Required)'}
+                    </label>
                     <textarea 
                         style={styles.textarea} 
                         rows="4" 
-                        placeholder="Enter justification for approval or rejection..."
+                        placeholder={isLevel2 ? "Confirm eligibility score breakdown..." : "Enter justification for approval or rejection..."}
                         value={remarks}
                         onChange={e => setRemarks(e.target.value)}
                         disabled={submitting || successMessage}
                     />
                 </div>
+                
                 <div style={styles.btnGroup}>
-                    <button 
-                        style={styles.rejectBtn} 
-                        onClick={() => handleAction(false)}
-                        disabled={submitting || successMessage}
-                    >
-                        ❌ Reject Application
-                    </button>
-                    <button 
-                        style={styles.approveBtn} 
-                        onClick={() => handleAction(true)}
-                        disabled={submitting || successMessage}
-                    >
-                        ✅ Approve & Verify
-                    </button>
+                    {isLevel2 ? (
+                        <>
+                            <button style={styles.rejectBtn} onClick={() => handleEligibilityAction('REJECTED')} disabled={submitting || successMessage}>
+                                ❌ Reject Eligibility
+                            </button>
+                            <button style={styles.escalationBtn} onClick={handleReturnToApplicant} disabled={submitting || successMessage}>
+                                ↩️ Return to Applicant
+                            </button>
+                            <button style={styles.approveBtn} onClick={() => handleEligibilityAction('VERIFIED')} disabled={submitting || successMessage}>
+                                ✅ Verify Eligibility Score
+                            </button>
+                        </>
+                    ) : isLevel3 ? (
+                        <>
+                            <button style={styles.rejectBtn} onClick={() => handleAction(false)} disabled={submitting || successMessage}>
+                                ❌ Reject Application
+                            </button>
+                            <button style={styles.escalationBtn} onClick={() => handleAction(true)} disabled={submitting || successMessage}>
+                                ⚠️ Review Escalation & Forward
+                            </button>
+                        </>
+                    ) : isFinalApproval ? (
+                        <>
+                            {details.status !== 'APPROVED' && details.status !== 'REJECTED' && (
+                                <>
+                                    <button style={styles.rejectBtn} onClick={() => handleAction(false)} disabled={submitting || successMessage}>
+                                        ❌ Final Reject
+                                    </button>
+                                    <button style={styles.finalApproveBtn} onClick={() => handleAction(true)} disabled={submitting || successMessage}>
+                                        🏆 Final Approve
+                                    </button>
+                                </>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            <button style={styles.rejectBtn} onClick={() => handleAction(false)} disabled={submitting || successMessage}>
+                                ❌ Reject Application
+                            </button>
+                            <button style={styles.approveBtn} onClick={() => handleAction(true)} disabled={submitting || successMessage}>
+                                ✅ Application Reviewed & Forward
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
         </div>
@@ -308,8 +470,8 @@ const styles = {
     docItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' },
     docType: { display: 'flex', alignItems: 'center', fontSize: '14px', fontWeight: 700, color: '#0f172a', margin: '0 0 8px 0' },
     docName: { fontSize: '13px', color: '#64748b', margin: 0 },
+    documentEvidence: { fontSize: '12px', color: '#475569', marginTop: '6px' },
     docStatusBadge: { marginLeft: '12px', padding: '3px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' },
-    docRemarks: { fontSize: '12px', color: '#b91c1c', margin: '6px 0 0 0', fontStyle: 'italic' },
     docActionsContainer: { display: 'flex', flexDirection: 'column' },
     viewBtn: { background: 'white', color: '#0f172a', border: '1px solid #cbd5e1', padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' },
     downloadBtn: { background: 'white', color: '#3b82f6', border: '1px solid #bfdbfe', padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, textDecoration: 'none', cursor: 'pointer' },
@@ -319,13 +481,23 @@ const styles = {
     label: { display: 'block', fontSize: '14px', fontWeight: 600, color: '#334155', marginBottom: '8px' },
     textarea: { width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontFamily: 'inherit', fontSize: '14px', resize: 'vertical' },
     btnGroup: { display: 'flex', justifyContent: 'flex-end', gap: '16px' },
-    rejectBtn: { background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '12px 24px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' },
-    approveBtn: { background: '#3b82f6', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(59,130,246,0.3)' },
+    rejectBtn: { background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '12px 24px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' },
+    approveBtn: { background: '#3b82f6', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' },
+    escalationBtn: { background: '#f97316', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' },
+    finalApproveBtn: { background: '#10b981', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' },
     centerContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '50vh', gap: '16px' },
     errorBox: { padding: '24px', background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '12px', fontWeight: 600, maxWidth: '400px', textAlign: 'center' },
     backBtn: { background: 'white', border: '1px solid #cbd5e1', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' },
     emptyText: { color: '#94a3b8', fontSize: '14px', fontStyle: 'italic' },
-    successAlert: { background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '16px', borderRadius: '12px', marginBottom: '24px', fontWeight: 600, textAlign: 'center' }
+    successAlert: { background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '16px', borderRadius: '12px', marginBottom: '24px', fontWeight: 600, textAlign: 'center' },
+    table: { width: '100%', borderCollapse: 'collapse', fontSize: '14px', textAlign: 'left' },
+    th: { padding: '12px', borderBottom: '2px solid #cbd5e1', backgroundColor: '#f8fafc', fontWeight: 600 },
+    td: { padding: '12px', borderBottom: '1px solid #e2e8f0' },
+    escalationWarning: { background: '#fff7ed', color: '#c2410c', border: '1px solid #fdba74', padding: '16px', borderRadius: '12px', marginBottom: '24px', fontWeight: 600, display: 'flex', gap: '8px', alignItems: 'center' },
+    timeline: { display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative', paddingLeft: '16px', borderLeft: '2px solid #e2e8f0' },
+    timelineItem: { position: 'relative' },
+    timelineDate: { fontSize: '12px', color: '#64748b', fontWeight: 600, marginBottom: '4px' },
+    timelineContent: { background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '14px' }
 };
 
 export default OfficerApplicationReview;

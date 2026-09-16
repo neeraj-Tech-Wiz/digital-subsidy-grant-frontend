@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { applicationService } from '../../services/applicationService';
+import { formatIndianCurrency } from '../../utils/currencyFormatting';
 
 const STATUS_CONFIG = {
     DOCUMENTS_PENDING: { label: 'Documents Pending', cls: 'badge-yellow', step: 1 },
@@ -11,6 +12,8 @@ const STATUS_CONFIG = {
     APPROVED: { label: 'Approved', cls: 'badge-emerald', step: 3 },
     REJECTED: { label: 'Rejected', cls: 'badge-red', step: 3 },
     ESCALATED: { label: 'Escalated', cls: 'badge-orange', step: 2 },
+    RETURNED_TO_APPLICANT: { label: 'Action Required', cls: 'badge-orange', step: 2 },
+    GRANT_DISBURSED: { label: 'Grant Disbursed', cls: 'badge-emerald', step: 3 },
 };
 
 const formatDate = (ds) => {
@@ -24,10 +27,19 @@ const MyApplications = () => {
     const [applications, setApplications] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [grantsMap, setGrantsMap] = useState({});
 
     useEffect(() => {
-        applicationService.getMyApplications()
-            .then(setApplications)
+        Promise.all([
+            applicationService.getMyApplications(),
+            applicationService.getMyGrants().catch(() => [])
+        ])
+            .then(([apps, grants]) => {
+                setApplications(apps);
+                const gMap = {};
+                grants.forEach(g => gMap[g.applicationId] = g);
+                setGrantsMap(gMap);
+            })
             .catch(err => {
                 // If profile missing, they shouldn't even have apps, but just handle it
                 if (err.response?.status !== 404) {
@@ -114,6 +126,15 @@ const MyApplications = () => {
                                     Applied on {formatDate(app.applicationDate)} 
                                     {app.verificationDueDate && ` • Verification due by ${formatDate(app.verificationDueDate)}`}
                                 </p>
+                                {app.status === 'GRANT_DISBURSED' && grantsMap[app.id] && (
+                                    <div style={{ marginTop: '12px', background: '#ecfdf5', border: '1px solid #10b981', padding: '8px 12px', borderRadius: '6px', display: 'inline-block' }}>
+                                        <p style={{ fontSize: '12px', fontWeight: '700', color: '#047857', marginBottom: '2px', textTransform: 'uppercase' }}>Amount Successfully Disbursed</p>
+                                        <p style={{ fontSize: '16px', fontWeight: '800', color: '#10b981' }}>{formatIndianCurrency(grantsMap[app.id].grantAmount)}</p>
+                                        <p style={{ fontSize: '11px', color: '#047857', marginTop: '2px' }}>
+                                            Transaction: {grantsMap[app.id].transactionReference} • Disbursed: {formatDate(grantsMap[app.id].disbursedAt)}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                             <div>
                                 <button className="btn btn-outline btn-sm">

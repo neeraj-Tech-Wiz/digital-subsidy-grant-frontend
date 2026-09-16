@@ -95,7 +95,7 @@ function SchemeManagement() {
 
       const data = await response.json();
 
-      console.log("Schemes:", data);
+
 
       setSchemes(data);
 
@@ -472,10 +472,7 @@ function SchemeManagement() {
           criterionData.description.trim(),
       };
 
-      console.log(
-        "Saving criterion:",
-        requestData
-      );
+
 
       const response = await fetch(
         `${API_URL}/${criterionScheme.id}/criteria`,

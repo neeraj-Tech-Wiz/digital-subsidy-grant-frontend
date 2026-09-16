@@ -46,7 +46,7 @@ function Login({ onLoginSuccess, onBack }) {
         );
       }
 
-      console.log("Login response:", data);
+
 
       // Store JWT token
       localStorage.setItem("token", data.token);

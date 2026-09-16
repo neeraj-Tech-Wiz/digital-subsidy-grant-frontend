@@ -16,5 +16,10 @@ export const schemeService = {
             params: { activeOnly }
         });
         return response.data;
+    },
+
+    getSchemeDocuments: async (id) => {
+        const response = await axiosInstance.get(`/api/schemes/${id}/documents`);
+        return response.data;
     }
 };

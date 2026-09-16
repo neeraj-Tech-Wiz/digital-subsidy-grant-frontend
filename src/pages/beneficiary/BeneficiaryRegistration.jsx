@@ -79,10 +79,7 @@ function BeneficiaryRegistration() {
         );
       }
 
-      console.log(
-        "Beneficiary saved successfully:",
-        data
-      );
+
 
       // ==========================================
       // SAVE BENEFICIARY ID FOR SCHEME APPLICATION
@@ -94,10 +91,7 @@ function BeneficiaryRegistration() {
           String(data.id)
         );
 
-        console.log(
-          "Beneficiary ID saved:",
-          data.id
-        );
+
       }
 
       alert(

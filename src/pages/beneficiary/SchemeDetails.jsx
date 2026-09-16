@@ -115,6 +115,7 @@ const SchemeDetails = () => {
                     <div>
                         <h2>Eligibility Check & Application</h2>
                         <p style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>Fill in your details to check eligibility. Fields marked <span style={{ color: '#dc2626' }}>*</span> are mandatory.</p>
+                        <p style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>Optional supporting documents are not required for submission. If provided and valid, they can contribute additional points to the eligibility score.</p>
                     </div>
                 </div>
                 <div className="portal-card-body">
@@ -147,7 +148,11 @@ const SchemeDetails = () => {
                                         <div key={c.id} className="portal-form-field">
                                             <label>
                                                 {c.criterionName}
-                                                {c.mandatory && <span className="required">*</span>}
+                                                {c.mandatory ? (
+                                                    <span className="required">*</span>
+                                                ) : (
+                                                    <span style={{ marginLeft: '6px', fontSize: '11px', background: '#e2e8f0', color: '#475569', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>OPTIONAL</span>
+                                                )}
                                             </label>
                                             {c.criterionType === 'BOOLEAN' ? (
                                                 <select

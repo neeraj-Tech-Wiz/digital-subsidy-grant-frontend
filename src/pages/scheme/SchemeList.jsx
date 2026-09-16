@@ -57,7 +57,7 @@ function SchemeList() {
           );
         }
 
-        console.log("Schemes API response:", data);
+
 
         setSchemes(Array.isArray(data) ? data : []);
 
@@ -93,8 +93,7 @@ function SchemeList() {
     setEligibilityData({});
     setApplicationResult(null);
 
-    console.log("Selected scheme:", scheme);
-    console.log("Beneficiary ID:", beneficiaryId);
+
   };
 
 
@@ -176,20 +175,7 @@ function SchemeList() {
       }
 
 
-      console.log(
-        "Beneficiary ID:",
-        beneficiaryId
-      );
 
-      console.log(
-        "Scheme ID:",
-        selectedScheme.id
-      );
-
-      console.log(
-        "Sending eligibility data:",
-        eligibilityData
-      );
 
 
       // =========================
@@ -238,10 +224,7 @@ function SchemeList() {
       }
 
 
-      console.log(
-        "Application result:",
-        data
-      );
+
 
       setApplicationResult(data);
 
