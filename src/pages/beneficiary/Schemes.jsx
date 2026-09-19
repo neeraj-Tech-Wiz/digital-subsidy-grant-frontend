@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { schemeService } from '../../services/schemeService';
 import { NavLink } from 'react-router-dom';
+import { applicationService } from '../../services/applicationService';
 
 const Schemes = () => {
     const [schemes, setSchemes] = useState([]);
@@ -8,9 +9,17 @@ const Schemes = () => {
     const [error, setError] = useState(null);
     const [search, setSearch] = useState('');
 
+    const [cooldowns, setCooldowns] = useState({});
+
     useEffect(() => {
-        schemeService.getActiveSchemes()
-            .then(setSchemes)
+        Promise.all([
+            schemeService.getActiveSchemes(),
+            applicationService.getActiveCooldowns().catch(() => ({}))
+        ])
+            .then(([schemesData, cooldownsData]) => {
+                setSchemes(schemesData);
+                setCooldowns(cooldownsData);
+            })
             .catch(e => setError(e.message || 'Failed to load schemes from backend.'))
             .finally(() => setLoading(false));
     }, []);
@@ -103,9 +112,21 @@ const Schemes = () => {
                                         </span>
                                     </div>
                                 </div>
-                                <NavLink to={`/beneficiary/schemes/${scheme.id}`} className="scheme-apply-btn">
-                                    View Details &amp; Apply →
-                                </NavLink>
+                                {cooldowns[scheme.id]?.cooldownActive ? (
+                                    <div style={{ marginTop: '20px', padding: '12px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', textAlign: 'center' }}>
+                                        <div style={{ color: '#dc2626', fontWeight: '700', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginBottom: '4px' }}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                                            APPLICATION COOLDOWN
+                                        </div>
+                                        <p style={{ color: '#991b1b', fontSize: '12px', fontWeight: '500', margin: 0 }}>
+                                            Reapply available after {new Date(cooldowns[scheme.id].cooldownExpiresAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <NavLink to={`/beneficiary/schemes/${scheme.id}`} className="scheme-apply-btn">
+                                        View Details &amp; Apply →
+                                    </NavLink>
+                                )}
                             </div>
                         </div>
                     ))}

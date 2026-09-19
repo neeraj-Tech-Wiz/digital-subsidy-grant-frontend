@@ -135,6 +135,21 @@ const MyApplications = () => {
                                         </p>
                                     </div>
                                 )}
+                                {app.status === 'REJECTED' && app.cooldownExpiresAt && (() => {
+                                    const rDate = new Date(app.rejectedAt);
+                                    const available = new Date(app.cooldownExpiresAt);
+                                    const isActive = app.cooldownActive;
+                                    return (
+                                        <div style={{ marginTop: '12px', background: isActive ? '#fef2f2' : '#f0fdf4', border: `1px solid ${isActive ? '#fecaca' : '#bbf7d0'}`, padding: '8px 12px', borderRadius: '6px', display: 'inline-block' }}>
+                                            <p style={{ fontSize: '13px', fontWeight: '800', color: isActive ? '#991b1b' : '#166534', marginBottom: '2px' }}>
+                                                {isActive ? '🔒 Reapplication locked' : '✓ You may apply again to this scheme'}
+                                            </p>
+                                            <p style={{ fontSize: '11px', color: isActive ? '#7f1d1d' : '#14532d', marginTop: '2px', fontWeight: '500' }}>
+                                                Rejected on: {rDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} • Reapplication available: {available.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                            </p>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                             <div>
                                 <button className="btn btn-outline btn-sm">

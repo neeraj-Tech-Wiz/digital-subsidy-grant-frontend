@@ -117,7 +117,7 @@ const ApplicationDetails = () => {
                     state: application.status === 'GRANT_DISBURSED' ? 'COMPLETED' : 'APPROVED' 
                 });
             } else if (h.action === 'REJECTED') {
-                timeline.push({ title: 'REJECTED', description: 'Your application was rejected.', remarks: h.remarks, timestamp: time, state: 'REJECTED' });
+                timeline.push({ title: 'Application Rejected', description: 'Your application was unfortunately rejected.', remarks: h.remarks, timestamp: time, state: 'REJECTED' });
             } else if (h.action === 'ESCALATION_REVIEWED') {
                 timeline.push({ title: 'Level 3 Escalation', description: 'Escalation review completed.', timestamp: time, state: 'COMPLETED' });
             }
@@ -143,6 +143,36 @@ const ApplicationDetails = () => {
             timeline.push({ title: 'Fund Disbursement', description: 'Your application is queued to the Finance department for fund disbursement.', state: 'CURRENT' });
         } else if (application.status === 'GRANT_DISBURSED') {
             timeline.push({ title: 'GRANT DISBURSED', description: 'Grant funds have been successfully transferred to your verified account via the Finance Node.', state: 'APPROVED', timestamp: grantData ? formatDate(grantData.disbursedAt) : '' });
+        }
+        
+        if (application.status === 'REJECTED' && application.cooldownExpiresAt) {
+            const reapplyDate = new Date(application.cooldownExpiresAt); 
+            const isActive = application.cooldownActive;
+            
+            if (isActive) {
+                timeline.push({ 
+                    title: 'Cooldown Active', 
+                    description: `You are in a mandatory cooling-off period until ${reapplyDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}.`, 
+                    state: 'CURRENT',
+                    iconOverride: '🔒'
+                });
+                timeline.push({ 
+                    title: 'Reapply Available', 
+                    state: 'PENDING' 
+                });
+            } else {
+                timeline.push({ 
+                    title: 'Cooldown Expired', 
+                    description: 'The mandatory cooling-off period has passed.', 
+                    timestamp: reapplyDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+                    state: 'COMPLETED' 
+                });
+                timeline.push({ 
+                    title: 'Reapply Available', 
+                    description: 'You may now submit a new application for this scheme.',
+                    state: 'APPROVED'
+                });
+            }
         }
 
         return (
@@ -173,6 +203,10 @@ const ApplicationDetails = () => {
                             } else if (node.state === 'REJECTED') {
                                 iconColor = '#ef4444'; borderColor = '#fecaca'; titleColor = '#991b1b';
                                 icon = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
+                            }
+                            
+                            if (node.iconOverride) {
+                                icon = <span style={{fontSize: '10px'}}>{node.iconOverride}</span>;
                             }
                             
                             return (

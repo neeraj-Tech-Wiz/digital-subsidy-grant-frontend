@@ -14,6 +14,7 @@ const SchemeDetails = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [eligibilityData, setEligibilityData] = useState({});
+    const [cooldownData, setCooldownData] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState(null);
     const [eligibilityResult, setEligibilityResult] = useState(null);
@@ -21,12 +22,14 @@ const SchemeDetails = () => {
     useEffect(() => {
         const load = async () => {
             try {
-                const [schemeData, criteriaData] = await Promise.all([
+                const [schemeData, criteriaData, cdData] = await Promise.all([
                     schemeService.getSchemeById(schemeId),
-                    schemeService.getSchemeCriteria(schemeId, true)
+                    schemeService.getSchemeCriteria(schemeId, true),
+                    applicationService.getSchemeEligibility(schemeId).catch(() => null)
                 ]);
                 setScheme(schemeData);
                 setCriteria(criteriaData);
+                setCooldownData(cdData);
                 const init = {};
                 criteriaData.forEach(c => { init[c.fieldName] = ''; });
                 setEligibilityData(init);
@@ -127,6 +130,31 @@ const SchemeDetails = () => {
                             <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#065f46', marginBottom: '8px' }}>You're Eligible!</h3>
                             <p style={{ color: '#047857', fontSize: '14px' }}>Application created successfully. Redirecting to document upload...</p>
                             <div className="spinner" style={{ margin: '20px auto 0', borderTopColor: '#059669' }} />
+                        </div>
+                    ) : cooldownData?.cooldownActive ? (
+                        <div style={{ padding: '30px', textAlign: 'center', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', margin: '20px 0' }}>
+                            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            </div>
+                            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#991b1b', marginBottom: '12px' }}>Application Temporarily Unavailable</h3>
+                            <p style={{ color: '#7f1d1d', fontSize: '14px', marginBottom: '20px' }}>Your previous application for this scheme was rejected.</p>
+                            
+                            <div style={{ display: 'inline-flex', gap: '30px', background: '#fff', padding: '16px 24px', borderRadius: '8px', border: '1px solid #fecaca' }}>
+                                <div style={{ textAlign: 'left' }}>
+                                    <p style={{ fontSize: '12px', color: '#b91c1c', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>Cooldown period</p>
+                                    <p style={{ fontSize: '15px', fontWeight: '700', color: '#7f1d1d' }}>{cooldownData.configuredCooldownDays || 30} days</p>
+                                </div>
+                                <div style={{ width: '1px', background: '#fca5a5' }}></div>
+                                <div style={{ textAlign: 'left' }}>
+                                    <p style={{ fontSize: '12px', color: '#b91c1c', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>Reapplication available</p>
+                                    <p style={{ fontSize: '15px', fontWeight: '700', color: '#7f1d1d' }}>{new Date(cooldownData.cooldownExpiresAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                                </div>
+                                <div style={{ width: '1px', background: '#fca5a5' }}></div>
+                                <div style={{ textAlign: 'left' }}>
+                                    <p style={{ fontSize: '12px', color: '#b91c1c', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>Remaining</p>
+                                    <p style={{ fontSize: '15px', fontWeight: '700', color: '#7f1d1d' }}>{cooldownData.remainingDays} days</p>
+                                </div>
+                            </div>
                         </div>
                     ) : (
                         <form onSubmit={handleApply}>

@@ -47,5 +47,15 @@ export const applicationService = {
     getMyGrants: async () => {
         const response = await axiosInstance.get('/api/applications/my-applications/grants');
         return response.data;
+    },
+
+    getSchemeEligibility: async (schemeId) => {
+        const response = await axiosInstance.get(`/api/applications/scheme/${schemeId}/eligibility`);
+        return response.data;
+    },
+
+    getActiveCooldowns: async () => {
+        const response = await axiosInstance.get('/api/applications/cooldowns');
+        return response.data;
     }
 };
