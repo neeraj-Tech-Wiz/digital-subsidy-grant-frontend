@@ -20,5 +20,12 @@ export const documentService = {
     getApplicationDocuments: async (applicationId) => {
         const response = await axiosInstance.get(`/api/documents/application/${applicationId}`);
         return response.data;
+    },
+
+    downloadDocument: async (documentId) => {
+        const response = await axiosInstance.get(`/api/documents/${documentId}`, {
+            responseType: 'blob'
+        });
+        return response;
     }
 };

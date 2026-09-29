@@ -4,6 +4,8 @@ import { documentService } from '../../services/documentService';
 import { applicationService } from '../../services/applicationService';
 import { schemeService } from '../../services/schemeService';
 import { formatIndianCurrency } from '../../utils/currencyFormatting';
+import grantService from '../../services/grantService';
+import { beneficiaryService } from '../../services/beneficiaryService';
 
 const STATUS_CONFIG = {
     DOCUMENTS_PENDING: { label: 'Documents Pending', cls: 'badge-yellow' },
@@ -15,7 +17,13 @@ const STATUS_CONFIG = {
     REJECTED: { label: 'Rejected', cls: 'badge-red' },
     ESCALATED: { label: 'Escalated', cls: 'badge-orange' },
     RETURNED_TO_APPLICANT: { label: 'Action Required', cls: 'badge-orange' },
-    GRANT_DISBURSED: { label: 'Grant Disbursed', cls: 'badge-emerald' }
+    GRANT_DISBURSED: { label: 'Grant Disbursed', cls: 'badge-emerald' },
+    PLAN_CONFIGURED: { label: 'Plan Configured', cls: 'badge-blue' },
+    MILESTONE_PENDING: { label: 'Milestone Pending', cls: 'badge-purple' },
+    PARTIALLY_DISBURSED: { label: 'Partially Disbursed', cls: 'badge-blue' },
+    MILESTONE_OVERDUE: { label: 'Milestone Overdue', cls: 'badge-orange' },
+    NON_COMPLIANT: { label: 'Non Compliant', cls: 'badge-red' },
+    FULLY_DISBURSED: { label: 'Fully Disbursed', cls: 'badge-emerald' }
 };
 
 const ApplicationDetails = () => {
@@ -30,12 +38,89 @@ const ApplicationDetails = () => {
     const [eligibilityData, setEligibilityData] = useState({});
     const [history, setHistory] = useState([]);
     const [grantData, setGrantData] = useState(null);
+    const [disbursementPlan, setDisbursementPlan] = useState(null);
     
     const [loadingDocs, setLoadingDocs] = useState(false);
     const [uploading, setUploading] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const [submitMsg, setSubmitMsg] = useState(null);
     const [submitSuccess, setSubmitSuccess] = useState(false);
+    const [uploadingMilestone, setUploadingMilestone] = useState(null);
+    const [receiptModal, setReceiptModal] = useState(null);
+    const [loadingReceipt, setLoadingReceipt] = useState(false);
+    const [bankingDetails, setBankingDetails] = useState({
+        bankAccountHolderName: '',
+        bankName: '',
+        bankAccountNumber: '',
+        bankIfscCode: '',
+        bankAccountType: 'SAVINGS'
+    });
+    const [savingBanking, setSavingBanking] = useState(false);
+
+    const viewReceipt = async (milestoneId) => {
+        setLoadingReceipt(true);
+        try {
+            const res = await grantService.getMilestoneReceipt(milestoneId);
+            setReceiptModal(res.data);
+        } catch (err) {
+            alert('Could not fetch receipt details. It might not be available yet.');
+        } finally {
+            setLoadingReceipt(false);
+        }
+    };
+
+    const handleMilestoneFilesChange = (e, milestoneId) => {
+        if (!e.target.files) return;
+        const newFiles = Array.from(e.target.files).map(f => ({
+            file: f,
+            type: 'INVOICE'
+        }));
+        setUploadingMilestone(prev => {
+            if (prev?.id === milestoneId) {
+                return { id: milestoneId, staging: [...(prev.staging || []), ...newFiles] };
+            }
+            return { id: milestoneId, staging: newFiles };
+        });
+        e.target.value = null; // reset input
+    };
+
+    const removeMilestoneFile = (index) => {
+        setUploadingMilestone(prev => ({
+            ...prev,
+            staging: prev.staging.filter((_, i) => i !== index)
+        }));
+    };
+
+    const updateMilestoneFileType = (index, type) => {
+        setUploadingMilestone(prev => {
+            const newStaging = [...prev.staging];
+            newStaging[index].type = type;
+            return { ...prev, staging: newStaging };
+        });
+    };
+
+    const submitMilestoneEvidence = async (milestoneId) => {
+        if (!uploadingMilestone || !uploadingMilestone.staging || uploadingMilestone.staging.length === 0) return;
+        setSubmitting(true);
+        try {
+            const formData = new FormData();
+            uploadingMilestone.staging.forEach(f => {
+                formData.append('files', f.file);
+                formData.append('evidenceTypes', f.type);
+            });
+            await grantService.uploadComplianceEvidenceFiles(milestoneId, formData);
+            alert('Evidences uploaded successfully!');
+            setUploadingMilestone(null);
+            
+            // refresh plan
+            const p = await grantService.getDisbursementPlan(application.id);
+            setDisbursementPlan(p.data);
+        } catch (err) {
+            alert('Upload failed.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     useEffect(() => {
         if (!application && applicationId) {
@@ -58,15 +143,29 @@ const ApplicationDetails = () => {
             application.schemeId ? schemeService.getSchemeCriteria(application.schemeId, true) : Promise.resolve([]),
             applicationService.getApplicationAnswers(application.id).catch(() => ({})),
             applicationService.getApplicationHistory(application.id).catch(() => ([])),
-            application.status === 'GRANT_DISBURSED' ? applicationService.getApplicationGrant(application.id).catch(() => null) : Promise.resolve(null)
+            ['APPROVED', 'PLAN_CONFIGURED', 'MILESTONE_PENDING', 'PARTIALLY_DISBURSED', 'MILESTONE_OVERDUE', 'NON_COMPLIANT', 'FULLY_DISBURSED', 'GRANT_DISBURSED'].includes(application.status) ? applicationService.getFinancialSummary(application.id).catch(() => null) : Promise.resolve(null),
+            ['PLAN_CONFIGURED', 'MILESTONE_PENDING', 'PARTIALLY_DISBURSED', 'MILESTONE_OVERDUE', 'NON_COMPLIANT', 'FULLY_DISBURSED'].includes(application.status) 
+                ? grantService.getDisbursementPlan(application.id).then(r => r.data).catch(() => null) 
+                : Promise.resolve(null),
+            beneficiaryService.getMyProfile().catch(() => null)
         ])
-        .then(([appDocs, reqDocs, critData, answers, histData, grant]) => {
+        .then(([appDocs, reqDocs, critData, answers, histData, grant, plan, profile]) => {
             setDocuments(appDocs || []);
             setSchemeDocs(reqDocs || []);
             setCriteria(critData || []);
             setEligibilityData(answers || {});
             setHistory(histData || []);
             setGrantData(grant);
+            setDisbursementPlan(plan);
+            if (profile) {
+                setBankingDetails({
+                    bankAccountHolderName: profile.bankAccountHolderName || '',
+                    bankName: profile.bankName || '',
+                    bankAccountNumber: profile.bankAccountNumberMasked || profile.bankAccountNumber || '',
+                    bankIfscCode: profile.bankIfscCode || '',
+                    bankAccountType: profile.bankAccountType || 'SAVINGS'
+                });
+            }
         })
         .catch(() => {})
         .finally(() => setLoadingDocs(false));
@@ -141,8 +240,14 @@ const ApplicationDetails = () => {
             }
         } else if (application.status === 'APPROVED') {
             timeline.push({ title: 'Fund Disbursement', description: 'Your application is queued to the Finance department for fund disbursement.', state: 'CURRENT' });
+        } else if (['PLAN_CONFIGURED', 'MILESTONE_PENDING', 'PARTIALLY_DISBURSED'].includes(application.status)) {
+            timeline.push({ title: 'Staged Disbursement Ongoing', description: 'Your grant funds are being released via milestone-based planned schedule.', state: 'CURRENT' });
+        } else if (application.status === 'MILESTONE_OVERDUE' || application.status === 'NON_COMPLIANT') {
+            timeline.push({ title: 'Compliance Issue', description: 'A scheduled milestone is overdue or non-compliant.', state: 'WARNING' });
+        } else if (application.status === 'FULLY_DISBURSED') {
+            timeline.push({ title: 'FULLY DISBURSED', description: 'All scheduled milestones have been successfully disbursed.', state: 'APPROVED' });
         } else if (application.status === 'GRANT_DISBURSED') {
-            timeline.push({ title: 'GRANT DISBURSED', description: 'Grant funds have been successfully transferred to your verified account via the Finance Node.', state: 'APPROVED', timestamp: grantData ? formatDate(grantData.disbursedAt) : '' });
+            timeline.push({ title: 'GRANT DISBURSED', description: 'Grant funds have been successfully transferred to your verified account via the Finance Node.', state: 'APPROVED' });
         }
         
         if (application.status === 'REJECTED' && application.cooldownExpiresAt) {
@@ -281,6 +386,21 @@ const ApplicationDetails = () => {
         setEligibilityData(p => ({ ...p, [field]: value }));
     };
 
+    const handleSaveBanking = async () => {
+        setSavingBanking(true);
+        try {
+            await beneficiaryService.updateBankingDetails(bankingDetails);
+            alert('Banking details saved successfully.');
+            // Update masked view properly
+            const p = await beneficiaryService.getMyProfile();
+            setBankingDetails(prev => ({ ...prev, bankAccountNumber: p.bankAccountNumberMasked || p.bankAccountNumber }));
+        } catch (err) {
+            alert('Failed to save banking details. ensure all fields are correct.');
+        } finally {
+            setSavingBanking(false);
+        }
+    };
+
     const handleSubmit = async () => {
         setSubmitting(true);
         setSubmitMsg(null);
@@ -347,34 +467,247 @@ const ApplicationDetails = () => {
 
             {renderTimeline()}
 
-            {/* Detailed Grant Payout Receipt */}
+            {/* Financial Summary */}
             {grantData && (
                 <div className="portal-card" style={{ marginBottom: '20px', borderLeft: '4px solid #10b981' }}>
-                    <div className="portal-card-header" style={{ paddingBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="portal-card-header" style={{ paddingBottom: '16px' }}>
                         <div>
                             <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#064e3b' }}>
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
-                                OFFICIAL GRANT RECEIPT
+                                FINANCIAL SUMMARY
                             </h2>
                         </div>
                     </div>
                     <div className="portal-card-body" style={{ background: '#f0fdf4', padding: '24px 28px' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '24px' }}>
                             <div>
-                                <p style={{ fontSize: '12px', fontWeight: '700', color: '#064e3b', textTransform: 'uppercase', marginBottom: '4px' }}>Amount Received</p>
-                                <p style={{ fontSize: '24px', fontWeight: '800', color: '#10b981', letterSpacing: '-0.5px' }}>{formatIndianCurrency(grantData.grantAmount)}</p>
+                                <p style={{ fontSize: '12px', fontWeight: '700', color: '#064e3b', textTransform: 'uppercase', marginBottom: '4px' }}>Approved Amount</p>
+                                <p style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>{formatIndianCurrency(grantData.approvedAmount)}</p>
                             </div>
                             <div>
-                                <p style={{ fontSize: '12px', fontWeight: '700', color: '#064e3b', textTransform: 'uppercase', marginBottom: '4px' }}>Status</p>
-                                <p style={{ display: 'inline-block', fontSize: '13px', fontWeight: '700', color: '#fff', background: '#10b981', padding: '4px 10px', borderRadius: '4px' }}>DISBURSED SUCCESSFULLY</p>
+                                <p style={{ fontSize: '12px', fontWeight: '700', color: '#064e3b', textTransform: 'uppercase', marginBottom: '4px' }}>Total Released</p>
+                                <p style={{ fontSize: '20px', fontWeight: '800', color: '#10b981' }}>{formatIndianCurrency(grantData.releasedAmount)}</p>
                             </div>
                             <div>
-                                <p style={{ fontSize: '12px', fontWeight: '700', color: '#064e3b', textTransform: 'uppercase', marginBottom: '4px' }}>Transaction Reference</p>
-                                <p style={{ fontSize: '15px', fontFamily: 'monospace', color: '#064e3b', background: '#d1fae5', padding: '4px 8px', borderRadius: '4px', display: 'inline-block' }}>{grantData.transactionReference}</p>
+                                <p style={{ fontSize: '12px', fontWeight: '700', color: '#064e3b', textTransform: 'uppercase', marginBottom: '4px' }}>Remaining</p>
+                                <p style={{ fontSize: '20px', fontWeight: '800', color: '#ef4444' }}>{formatIndianCurrency(grantData.remainingAmount)}</p>
                             </div>
                             <div>
-                                <p style={{ fontSize: '12px', fontWeight: '700', color: '#064e3b', textTransform: 'uppercase', marginBottom: '4px' }}>Disbursed On</p>
-                                <p style={{ fontSize: '15px', fontWeight: '600', color: '#064e3b' }}>{new Date(grantData.disbursedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                                <p style={{ fontSize: '12px', fontWeight: '700', color: '#064e3b', textTransform: 'uppercase', marginBottom: '4px' }}>Utilization</p>
+                                <p style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>{grantData.utilizationPercentage}%</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Initial Banking Details */}
+            {(() => {
+                const m1 = disbursementPlan?.milestones?.find(m => m.number === 1);
+                return m1 && m1.complianceType === 'DOCUMENTATION' && 
+                 ['PENDING', 'DUE', 'BLOCKED'].includes(m1.status) && (
+                    <div className="portal-card" style={{ marginBottom: '20px', borderLeft: '4px solid #f59e0b' }}>
+                        <div className="portal-card-header" style={{ paddingBottom: '16px' }}>
+                            <div>
+                                <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#b45309' }}>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2" ry="2"></rect><circle cx="12" cy="16" r="2"></circle><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                    INITIAL BANKING DETAILS
+                                </h2>
+                                <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>Banking details and a verified passbook are required before the initial grant installment can be released.</p>
+                            </div>
+                        </div>
+                        <div className="portal-card-body" style={{ background: '#fffbeb', padding: '24px 28px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>Account Holder Name</label>
+                                    <input type="text" value={bankingDetails.bankAccountHolderName} onChange={e => setBankingDetails({...bankingDetails, bankAccountHolderName: e.target.value})} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }} />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>Bank Name</label>
+                                    <input type="text" value={bankingDetails.bankName} onChange={e => setBankingDetails({...bankingDetails, bankName: e.target.value})} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }} />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>Account Number</label>
+                                    <input type="text" value={bankingDetails.bankAccountNumber} onChange={e => setBankingDetails({...bankingDetails, bankAccountNumber: e.target.value})} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }} placeholder="Enter full account number" />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>IFSC Code</label>
+                                    <input type="text" value={bankingDetails.bankIfscCode} onChange={e => setBankingDetails({...bankingDetails, bankIfscCode: e.target.value})} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }} />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>Account Type</label>
+                                    <select value={bankingDetails.bankAccountType} onChange={e => setBankingDetails({...bankingDetails, bankAccountType: e.target.value})} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
+                                        <option value="SAVINGS">Savings</option>
+                                        <option value="CURRENT">Current</option>
+                                    </select>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                                    <button onClick={handleSaveBanking} disabled={savingBanking} style={{ padding: '10px 20px', background: '#f59e0b', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: savingBanking ? 'not-allowed' : 'pointer' }}>
+                                        {savingBanking ? 'Saving...' : 'Save Banking Details'}
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div style={{ borderTop: '1px dashed #fcd34d', paddingTop: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div>
+                                    <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#b45309' }}>Bank Passbook Photo</h4>
+                                    <p style={{ fontSize: '12px', color: '#92400e' }}>Upload a clear photo of your bank passbook (PDF, JPG, PNG)</p>
+                                </div>
+                                <div>
+                                    {getDoc('BANK_PASSBOOK') ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <span style={{ fontSize: '13px', background: '#dcfce7', color: '#166534', padding: '4px 12px', borderRadius: '100px', fontWeight: 'bold' }}>✓ Uploaded</span>
+                                            <span style={{ fontSize: '12px', color: getDoc('BANK_PASSBOOK').status === 'VERIFIED' ? '#166534' : (getDoc('BANK_PASSBOOK').status === 'REJECTED' ? '#991b1b' : '#b45309'), fontWeight: 'bold' }}>
+                                                {getDoc('BANK_PASSBOOK').status === 'VERIFIED' ? '✓ VERIFIED' : (getDoc('BANK_PASSBOOK').status === 'REJECTED' ? '✗ REJECTED' : '⏳ PENDING VERIFICATION')}
+                                            </span>
+                                        </div>
+                                    ) : uploading === 'BANK_PASSBOOK' ? (
+                                        <span style={{ fontSize: '13px', color: '#1a56db', fontWeight: '500' }}>Uploading...</span>
+                                    ) : (
+                                        <>
+                                            <input type="file" id="passbook-upload" accept=".pdf,.jpg,.jpeg,.png" onChange={e => handleUpload(e, 'BANK_PASSBOOK')} style={{ display: 'none' }} />
+                                            <label htmlFor="passbook-upload" style={{ display: 'inline-block', padding: '8px 16px', background: 'white', border: '1px solid #fcd34d', color: '#b45309', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', fontSize: '13px' }}>
+                                                Choose File
+                                            </label>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {/* Staged Disbursement Schedule (Read-Only) */}
+            {disbursementPlan && (
+                <div className="portal-card" style={{ marginBottom: '20px' }}>
+                    <div className="portal-card-header" style={{ paddingBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1e3a8a' }}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e3a8a" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                                STAGED DISBURSEMENT SCHEDULE
+                            </h2>
+                        </div>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#1e3a8a' }}>
+                            {formatIndianCurrency(disbursementPlan.releasedAmount)} / {formatIndianCurrency(disbursementPlan.plannedAmount)} Released
+                        </div>
+                    </div>
+                    <div className="portal-card-body" style={{ background: '#f8fafc', padding: '24px 28px' }}>
+                        {[...(disbursementPlan.milestones || [])].sort((a, b) => a.number - b.number).map((m, index, arr) => {
+                            const prevReleased = index === 0 || arr[index - 1].status === 'RELEASED';
+                            return (
+                            <div key={m.id} style={{ padding: '16px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', marginBottom: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                        <div style={{ width: '36px', height: '36px', background: '#f1f5f9', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#64748b' }}>
+                                            {m.number}
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>{m.name || `Milestone ${m.number}`}</div>
+                                            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Due: {new Date(m.dueDate).toLocaleDateString()} • Required: {m.complianceType.replace('_', ' ')}</div>
+                                        </div>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <div style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>{formatIndianCurrency(m.amount)}</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                            <div style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', display: 'inline-block', marginTop: '4px',
+                                                background: m.status === 'RELEASED' ? '#dcfce7' : (m.status === 'COMPLETED' ? '#e0f2fe' : '#f1f5f9'),
+                                                color: m.status === 'RELEASED' ? '#166534' : (m.status === 'COMPLETED' ? '#0369a1' : '#475569')
+                                            }}>
+                                                {m.status}
+                                            </div>
+                                            {m.status === 'RELEASED' && (
+                                                <button onClick={() => viewReceipt(m.id)} disabled={loadingReceipt} style={{ marginTop: '8px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 8px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
+                                                    {loadingReceipt ? 'Loading...' : 'VIEW RECEIPT'}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {m.complianceType === 'UTILIZATION_PROOF' && prevReleased && (m.status === 'PENDING' || m.status === 'DUE' || m.status === 'OVERDUE' || m.status === 'NON_COMPLIANT') && (
+                                    <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px dashed #e2e8f0' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                            <div>
+                                                <p style={{ fontSize: '13px', fontWeight: 600, color: '#ef4444', marginBottom: '2px' }}>Action Required: Utilization Proof Evidences</p>
+                                                <p style={{ fontSize: '12px', color: '#64748b' }}>Please stage your invoices or bank statements to proceed to the next disbursement round.</p>
+                                            </div>
+                                            <label style={{ display: 'inline-block', padding: '6px 12px', background: '#e0f2fe', color: '#0369a1', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 700 }}>
+                                                + ADD FILES
+                                                <input type="file" multiple onChange={(e) => handleMilestoneFilesChange(e, m.id)} style={{ display: 'none' }} />
+                                            </label>
+                                        </div>
+                                        
+                                        {uploadingMilestone?.id === m.id && uploadingMilestone.staging?.length > 0 && (
+                                            <div style={{ padding: '12px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                                                <p style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '8px', textTransform: 'uppercase' }}>Staged Evidence Files</p>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    {uploadingMilestone.staging.map((s, idx) => (
+                                                        <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', padding: '8px 12px', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, overflow: 'hidden' }}>
+                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
+                                                                <span style={{ fontSize: '13px', fontWeight: 500, color: '#334155', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{s.file.name}</span>
+                                                            </div>
+                                                            <div style={{ display: 'flex', gap: '12px' }}>
+                                                                <select 
+                                                                    value={s.type} 
+                                                                    onChange={(e) => updateMilestoneFileType(idx, e.target.value)}
+                                                                    style={{ fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                                                                >
+                                                                    <option value="INVOICE">Invoice / Bill</option>
+                                                                    <option value="BANK_STATEMENT">Bank Statement</option>
+                                                                    <option value="PHOTOGRAPH">Site Photograph</option>
+                                                                    <option value="OTHER">Other Proof</option>
+                                                                </select>
+                                                                <button onClick={() => removeMilestoneFile(idx)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}>
+                                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
+                                                    <button onClick={() => submitMilestoneEvidence(m.id)} disabled={submitting} style={{ padding: '8px 16px', background: '#10b981', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                                                        {submitting ? 'UPLOADING...' : `SUBMIT ${uploadingMilestone.staging.length} EVIDENCE(S)`}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )})}
+                    </div>
+                </div>
+            )}
+
+            {/* Receipt Modal */}
+            {receiptModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                    <div className="portal-card" style={{ width: '400px', backgroundColor: '#fff', borderRadius: '8px', overflow: 'hidden' }}>
+                        <div style={{ backgroundColor: '#10b981', padding: '16px', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ margin: 0, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
+                                Milestone Receipt
+                            </h3>
+                            <button onClick={() => setReceiptModal(null)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '18px' }}>&times;</button>
+                        </div>
+                        <div style={{ padding: '24px' }}>
+                            <div style={{ marginBottom: '16px' }}>
+                                <p style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Amount Released</p>
+                                <p style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a' }}>{formatIndianCurrency(receiptModal.amount)}</p>
+                            </div>
+                            <div style={{ marginBottom: '16px' }}>
+                                <p style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Date</p>
+                                <p style={{ fontSize: '15px', color: '#334155', fontWeight: 600 }}>{new Date(receiptModal.releasedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                            </div>
+                            <div style={{ marginBottom: '16px' }}>
+                                <p style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Transaction ID</p>
+                                <p style={{ fontSize: '14px', fontFamily: 'monospace', background: '#f1f5f9', padding: '4px 8px', display: 'inline-block', borderRadius: '4px' }}>{receiptModal.transactionReference}</p>
+                            </div>
+                            <div style={{ marginBottom: '8px' }}>
+                                <p style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Status</p>
+                                <span style={{ fontSize: '12px', background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>{receiptModal.status}</span>
                             </div>
                         </div>
                     </div>
