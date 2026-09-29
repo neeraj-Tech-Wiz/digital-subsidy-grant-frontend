@@ -42,8 +42,12 @@ const BeneficiaryDashboard = () => {
                 try {
                     const grants = await applicationService.getMyGrants();
                     setMyGrants(grants || []);
-                    const total = (grants || []).reduce((acc, g) => acc + (g.grantAmount || 0), 0);
+                    const uniqueAppsCount = new Set((grants || []).map(g => g.applicationId)).size;
+                    const total = (grants || []).reduce((acc, g) => acc + (g.amount || 0), 0);
+                    // Use uniqueAppsCount for 'GRANTS RECEIVED' metric
+                    // But we keep myGrants for the recent disbursements list logic
                     setTotalReceived(total);
+                    window.dashboardUniqueGrants = uniqueAppsCount; // store for render
                 } catch (gErr) {
                     console.error('Failed to load grants:', gErr);
                 }
@@ -107,7 +111,7 @@ const BeneficiaryDashboard = () => {
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
                     </div>
                     <div className="dash-stat-body">
-                        <div className="dash-stat-number">{loading ? '—' : myGrants.length}</div>
+                        <div className="dash-stat-number">{loading ? '—' : (window.dashboardUniqueGrants || 0)}</div>
                         <div className="dash-stat-label" style={{ fontWeight: 800 }}>GRANTS RECEIVED</div>
                     </div>
                 </div>
@@ -142,12 +146,12 @@ const BeneficiaryDashboard = () => {
                             </div>
                             <div>
                                 <p style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Amount</p>
-                                <p style={{ fontSize: '18px', fontWeight: '800', color: '#10b981' }}>{formatIndianCurrency(myGrants[0].grantAmount)}</p>
+                                <p style={{ fontSize: '18px', fontWeight: '800', color: '#10b981' }}>{formatIndianCurrency(myGrants[0].amount)}</p>
                             </div>
                             <div>
                                 <p style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Disbursed Date</p>
                                 <p style={{ fontSize: '14px', fontWeight: '500', color: '#334155' }}>
-                                    {new Date(myGrants[0].disbursedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                    {new Date(myGrants[0].releasedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                 </p>
                             </div>
                             <div>

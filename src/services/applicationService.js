@@ -44,6 +44,11 @@ export const applicationService = {
         return response.data;
     },
 
+    getFinancialSummary: async (applicationId) => {
+        const response = await axiosInstance.get(`/api/applications/${applicationId}/financial-summary`);
+        return response.data;
+    },
+
     getMyGrants: async () => {
         const response = await axiosInstance.get('/api/applications/my-applications/grants');
         return response.data;

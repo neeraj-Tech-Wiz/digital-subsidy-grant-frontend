@@ -72,17 +72,23 @@ export default function PendingGrants() {
                                             </div>
                                         </td>
                                         <td style={{ padding: '16px' }}>
-                                            <span style={{ fontSize: '12px', fontWeight: 600, padding: '4px 10px', borderRadius: '100px', background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>
-                                                {grant.status}
-                                            </span>
+                                            {grant.status === 'APPROVED' ? (
+                                                <span style={{ fontSize: '12px', fontWeight: 600, padding: '4px 10px', borderRadius: '100px', background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>
+                                                    {grant.status}
+                                                </span>
+                                            ) : (
+                                                <span style={{ fontSize: '12px', fontWeight: 700, padding: '4px 10px', borderRadius: '100px', background: '#eff6ff', color: '#1a56db', border: '1px solid #bfdbfe' }}>
+                                                    PLAN CONFIGURED
+                                                </span>
+                                            )}
                                         </td>
                                         <td style={{ padding: '16px', textAlign: 'right' }}>
                                             <button 
-                                                onClick={() => navigate(`/grant-officer/applications/${grant.id}/disburse`)}
+                                                onClick={() => navigate(`/grant-officer/applications/${grant.applicationId || grant.id}/disburse`)}
                                                 style={{
                                                     background: 'transparent',
-                                                    color: '#1a56db',
-                                                    border: '1px solid #bfdbfe',
+                                                    color: grant.status === 'APPROVED' ? '#1a56db' : '#4f46e5',
+                                                    border: `1px solid ${grant.status === 'APPROVED' ? '#bfdbfe' : '#c7d2fe'}`,
                                                     padding: '8px 16px',
                                                     borderRadius: '6px',
                                                     fontSize: '13px',
@@ -90,10 +96,10 @@ export default function PendingGrants() {
                                                     cursor: 'pointer',
                                                     transition: 'all 0.2s',
                                                 }}
-                                                onMouseEnter={(e) => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#93c5fd'; }}
-                                                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#bfdbfe'; }}
+                                                onMouseEnter={(e) => { e.currentTarget.style.background = grant.status === 'APPROVED' ? '#eff6ff' : '#eef2ff'; }}
+                                                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                                             >
-                                                Review & Release
+                                                {grant.status === 'APPROVED' ? 'Review & Disburse' : 'VIEW PLAN →'}
                                             </button>
                                         </td>
                                     </tr>
