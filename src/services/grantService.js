@@ -104,6 +104,13 @@ const getRegionalAnalytics = () => {
     return axios.get(`${API_URL}/analytics/regions`, getAuthHeaders());
 };
 
+const getNonCompliantMilestones = () => {
+    return axios.get(`${API_URL}/compliance/non-compliant`, getAuthHeaders());
+};
+const getPendingComplianceMilestones = () => {
+    return axios.get(`${API_URL}/compliance/pending`, getAuthHeaders());
+};
+
 export default {
     getPendingGrants,
     getGrantApplication,
@@ -124,5 +131,7 @@ export default {
     reviewMilestoneEvidence,
     verifyMilestonePassbook,
     getMilestoneReceipt,
-    getRegionalAnalytics
+    getRegionalAnalytics,
+    getNonCompliantMilestones,
+    getPendingComplianceMilestones
 };

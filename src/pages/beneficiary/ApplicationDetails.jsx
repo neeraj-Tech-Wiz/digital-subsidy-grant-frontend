@@ -241,7 +241,18 @@ const ApplicationDetails = () => {
         } else if (application.status === 'APPROVED') {
             timeline.push({ title: 'Fund Disbursement', description: 'Your application is queued to the Finance department for fund disbursement.', state: 'CURRENT' });
         } else if (['PLAN_CONFIGURED', 'MILESTONE_PENDING', 'PARTIALLY_DISBURSED'].includes(application.status)) {
-            timeline.push({ title: 'Staged Disbursement Ongoing', description: 'Your grant funds are being released via milestone-based planned schedule.', state: 'CURRENT' });
+            const blockedMilestone = disbursementPlan?.milestones?.find(m => m.status === 'NON_COMPLIANT');
+            if (blockedMilestone) {
+                timeline.push({ 
+                    title: 'Compliance Issue', 
+                    description: 'A scheduled milestone is non-compliant and requires your action.', 
+                    state: 'WARNING',
+                    actionRequired: true,
+                    remarks: blockedMilestone.remarks || 'Please upload corrected evidence.'
+                });
+            } else {
+                timeline.push({ title: 'Staged Disbursement Ongoing', description: 'Your grant funds are being released via milestone-based planned schedule.', state: 'CURRENT' });
+            }
         } else if (application.status === 'MILESTONE_OVERDUE' || application.status === 'NON_COMPLIANT') {
             timeline.push({ title: 'Compliance Issue', description: 'A scheduled milestone is overdue or non-compliant.', state: 'WARNING' });
         } else if (application.status === 'FULLY_DISBURSED') {
@@ -430,12 +441,25 @@ const ApplicationDetails = () => {
     // Only strictly allow conditionally if documents pending or action required
     const canUpload = application.status === 'DOCUMENTS_PENDING' || application.status === 'RETURNED_TO_APPLICANT';
 
+    const nonCompliantMilestone = disbursementPlan?.milestones?.find(m => m.status === 'NON_COMPLIANT');
+
     // If RETURNED_TO_APPLICANT, is the eligibility form filled out correctly so we can submit?
     // Actually HTML5 Validation runs when it's a <form>. But since it's just buttons on the page without form tags, we should let the backend reject empty answers or we check basic non-empty here.
     // For now we assume they fill it properly before clicking submit.
 
     return (
         <div style={{ maxWidth: '900px' }}>
+            {nonCompliantMilestone && (
+                <div style={{ marginBottom: '20px', padding: '16px 20px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', borderLeft: '4px solid #ef4444' }}>
+                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 'bold', color: '#991b1b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        🔴 ACTION REQUIRED
+                    </h3>
+                    <p style={{ margin: '8px 0 0', fontSize: '14px', color: '#7f1d1d' }}>
+                        Your utilization proof requires correction. Please upload corrected evidence for {nonCompliantMilestone.name || `Stage ${nonCompliantMilestone.number}`} before the next fund release.
+                    </p>
+                </div>
+            )}
+
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px', fontSize: '13px', color: '#64748b' }}>
                 <button onClick={() => navigate('/beneficiary/applications')} style={{ background: 'none', border: 'none', color: '#1a56db', cursor: 'pointer', fontSize: '13px', fontWeight: '500' }}>My Applications</button>
                 <span>›</span>
@@ -532,7 +556,7 @@ const ApplicationDetails = () => {
                                 </div>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>IFSC Code</label>
-                                    <input type="text" value={bankingDetails.bankIfscCode} onChange={e => setBankingDetails({...bankingDetails, bankIfscCode: e.target.value})} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }} />
+                                    <input type="text" placeholder="e.g. SBIN0001234" value={bankingDetails.bankIfscCode} onChange={e => setBankingDetails({...bankingDetails, bankIfscCode: e.target.value})} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }} />
                                 </div>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>Account Type</label>
@@ -627,13 +651,30 @@ const ApplicationDetails = () => {
                                 
                                 {m.complianceType === 'UTILIZATION_PROOF' && prevReleased && (m.status === 'PENDING' || m.status === 'DUE' || m.status === 'OVERDUE' || m.status === 'NON_COMPLIANT') && (
                                     <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px dashed #e2e8f0' }}>
+                                        {m.status === 'NON_COMPLIANT' && (
+                                            <div style={{ marginBottom: '16px', padding: '12px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px' }}>
+                                                <p style={{ fontSize: '13.5px', fontWeight: 'bold', color: '#ef4444', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>🔴 ACTION REQUIRED: Utilization Proof Requires Correction</p>
+                                                <p style={{ fontSize: '13px', color: '#7f1d1d', margin: 0, lineHeight: 1.5 }}>
+                                                    <strong>Reason:</strong> <br />
+                                                    {m.remarks || 'The uploaded evidence was marked non-compliant by the Grant Officer.'}
+                                                </p>
+                                                <p style={{ fontSize: '13px', fontWeight: '600', color: '#991b1b', marginTop: '12px' }}>Next Step: Please submit corrected utilization evidence.</p>
+                                            </div>
+                                        )}
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                                             <div>
-                                                <p style={{ fontSize: '13px', fontWeight: 600, color: '#ef4444', marginBottom: '2px' }}>Action Required: Utilization Proof Evidences</p>
-                                                <p style={{ fontSize: '12px', color: '#64748b' }}>Please stage your invoices or bank statements to proceed to the next disbursement round.</p>
+                                                {m.status !== 'NON_COMPLIANT' && (
+                                                    <>
+                                                        <p style={{ fontSize: '13px', fontWeight: 600, color: '#ef4444', marginBottom: '2px' }}>Action Required: Utilization Proof Evidences</p>
+                                                        <p style={{ fontSize: '12px', color: '#64748b' }}>Please stage your invoices or bank statements to proceed to the next disbursement round.</p>
+                                                    </>
+                                                )}
+                                                {m.status === 'NON_COMPLIANT' && (
+                                                    <p style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>Upload new evidence to lift the block.</p>
+                                                )}
                                             </div>
-                                            <label style={{ display: 'inline-block', padding: '6px 12px', background: '#e0f2fe', color: '#0369a1', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 700 }}>
-                                                + ADD FILES
+                                            <label style={{ display: 'inline-block', padding: '6px 12px', background: m.status === 'NON_COMPLIANT' ? '#ef4444' : '#e0f2fe', color: m.status === 'NON_COMPLIANT' ? 'white' : '#0369a1', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 700 }}>
+                                                {m.status === 'NON_COMPLIANT' ? '+ UPLOAD CORRECTED EVIDENCE' : '+ ADD FILES'}
                                                 <input type="file" multiple onChange={(e) => handleMilestoneFilesChange(e, m.id)} style={{ display: 'none' }} />
                                             </label>
                                         </div>

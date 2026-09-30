@@ -47,7 +47,6 @@ const BeneficiaryDashboard = () => {
                     // Use uniqueAppsCount for 'GRANTS RECEIVED' metric
                     // But we keep myGrants for the recent disbursements list logic
                     setTotalReceived(total);
-                    window.dashboardUniqueGrants = uniqueAppsCount; // store for render
                 } catch (gErr) {
                     console.error('Failed to load grants:', gErr);
                 }
@@ -111,7 +110,7 @@ const BeneficiaryDashboard = () => {
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
                     </div>
                     <div className="dash-stat-body">
-                        <div className="dash-stat-number">{loading ? '—' : (window.dashboardUniqueGrants || 0)}</div>
+                        <div className="dash-stat-number">{loading ? '—' : new Set(myGrants.map(g => g.applicationId)).size}</div>
                         <div className="dash-stat-label" style={{ fontWeight: 800 }}>GRANTS RECEIVED</div>
                     </div>
                 </div>

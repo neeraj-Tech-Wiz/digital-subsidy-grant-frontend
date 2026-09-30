@@ -90,8 +90,8 @@ export default function GrantApplicationDetails() {
         try {
             setActioning(true);
             const remarks = reviewRemarks[`ev_${evidenceId}`];
-            if ((action === 'REJECTED' || action === 'NON_COMPLIANT') && (!remarks || !remarks.trim())) {
-                setError('Remarks are mandatory for rejection or non-compliance.');
+            if (action === 'REJECTED' && (!remarks || !remarks.trim())) {
+                setError('Remarks are mandatory for rejection.');
                 setActioning(false);
                 return;
             }
@@ -177,6 +177,15 @@ export default function GrantApplicationDetails() {
                 try {
                     const planRes = await grantService.getDisbursementPlan(applicationId);
                     setPlan(planRes.data);
+                    
+                    // Auto-load evidence to prevent visual desync
+                    if (planRes.data && planRes.data.milestones) {
+                        planRes.data.milestones.forEach(m => {
+                            if (m.complianceType === 'UTILIZATION_PROOF') {
+                                loadEvidence(m.id);
+                            }
+                        });
+                    }
                 } catch (e) {
                     console.log('No plan exists yet');
                 }
@@ -499,19 +508,22 @@ export default function GrantApplicationDetails() {
                             <div style={{ flex: 1 }}>
                                 <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '8px' }}>Bank Passbook</div>
                                 {documents && documents.filter(d => d.documentType === 'BANK_PASSBOOK').length > 0 ? (
-                                    documents.filter(d => d.documentType === 'BANK_PASSBOOK').map(doc => (
+                                    documents.filter(d => d.documentType === 'BANK_PASSBOOK').map(doc => {
+                                        const m1 = plan.milestones.find(m => m.number === 1);
+                                        const isM1Released = m1 && (m1.status === 'RELEASED' || m1.status === 'COMPLETED');
+                                        return (
                                         <div key={doc.id} style={{ marginBottom: '16px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
                                                 <button onClick={() => handleViewPassbook(doc.id)} disabled={downloadingEvidenceId === doc.id} style={{ padding: '6px 12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
                                                     {downloadingEvidenceId === doc.id ? 'Loading...' : 'View Passbook'}
                                                 </button>
-                                                <span style={{ fontSize: '12px', fontWeight: 700, padding: '4px 8px', borderRadius: '100px', background: doc.documentStatus === 'VERIFIED' ? '#dcfce7' : doc.documentStatus === 'REJECTED' ? '#fee2e2' : '#fef3c7', color: doc.documentStatus === 'VERIFIED' ? '#166534' : doc.documentStatus === 'REJECTED' ? '#991b1b' : '#92400e' }}>
-                                                    {doc.documentStatus}
+                                                <span style={{ fontSize: '12px', fontWeight: 700, padding: '4px 8px', borderRadius: '100px', background: (doc.documentStatus === 'VERIFIED' || isM1Released) ? '#dcfce7' : doc.documentStatus === 'REJECTED' ? '#fee2e2' : '#fef3c7', color: (doc.documentStatus === 'VERIFIED' || isM1Released) ? '#166534' : doc.documentStatus === 'REJECTED' ? '#991b1b' : '#92400e' }}>
+                                                    {(isM1Released && doc.documentStatus !== 'VERIFIED') ? 'VERIFIED (OVERRIDE)' : doc.documentStatus}
                                                 </span>
                                             </div>
-                                            {doc.documentStatus !== 'VERIFIED' && (
+                                            {(doc.documentStatus !== 'VERIFIED' && doc.documentStatus !== 'REJECTED' && !isM1Released) && (
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '300px' }}>
-                                                    <input type="text" placeholder="Remarks (Required for rejection)" value={reviewRemarks[`doc_${doc.id}`]||''} onChange={e=>setReviewRemarks({...reviewRemarks, [`doc_${doc.id}`]: e.target.value})} style={{ padding: '8px', fontSize: '13px', border: '1px solid #cbd5e1', borderRadius: '4px' }} />
+                                                    <input type="text" placeholder="Type rejection remarks here..." value={reviewRemarks[`doc_${doc.id}`]||''} onChange={e=>setReviewRemarks({...reviewRemarks, [`doc_${doc.id}`]: e.target.value})} style={{ padding: '8px', fontSize: '13px', border: '1px solid #cbd5e1', borderRadius: '4px' }} />
                                                     <div style={{ display: 'flex', gap: '8px' }}>
                                                         <button onClick={() => handleVerifyPassbook(applicationId, doc.id, 'VERIFIED')} disabled={actioning} style={{ flex: 1, padding: '8px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}>VERIFY</button>
                                                         <button onClick={() => handleVerifyPassbook(applicationId, doc.id, 'REJECTED')} disabled={actioning} style={{ flex: 1, padding: '8px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}>REJECT</button>
@@ -519,9 +531,17 @@ export default function GrantApplicationDetails() {
                                                 </div>
                                             )}
                                         </div>
-                                    ))
+                                    )})
                                 ) : (
-                                    <div style={{ fontSize: '14px', color: '#94a3b8', fontStyle: 'italic' }}>Pending beneficiary upload.</div>
+                                    <div style={{ fontSize: '14px', color: '#94a3b8', fontStyle: 'italic' }}>
+                                        {(() => {
+                                            const m1 = plan.milestones.find(m => m.number === 1);
+                                            if (m1 && (m1.status === 'RELEASED' || m1.status === 'COMPLETED')) {
+                                                return <span style={{ color: '#10b981', fontWeight: 700 }}>Auto-verified or No Document Required.</span>;
+                                            }
+                                            return 'Pending beneficiary upload.';
+                                        })()}
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -532,14 +552,20 @@ export default function GrantApplicationDetails() {
                         <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#475569', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '16px', borderBottom: '2px solid #f1f5f9', paddingBottom: '8px' }}>
                             UTILIZATION PROOF EVIDENCE
                         </h3>
-                        {plan.milestones.filter(m => m.complianceType === 'UTILIZATION_PROOF').map(m => (
+                        {plan.milestones.filter(m => m.complianceType === 'UTILIZATION_PROOF').map(m => {
+                            const isOverridden = m.status === 'RELEASED' || m.status === 'COMPLETED';
+                            return (
                             <div key={`evidence_review_${m.id}`} style={{ background: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
                                 <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginBottom: '16px' }}>Milestone: {m.name}</div>
                                 {(!evidenceData[m.id] || evidenceData[m.id].length === 0) ? (
-                                     <div style={{ fontSize: '14px', color: '#94a3b8', fontStyle: 'italic' }}>No utilization evidence uploaded yet (or click "View Evidence" on the milestone above).</div>
+                                     <div style={{ fontSize: '14px', color: '#94a3b8', fontStyle: 'italic' }}>
+                                         {isOverridden ? <span style={{ color: '#10b981', fontWeight: 700 }}>Auto-verified or No Document Required.</span> : 'No utilization evidence uploaded or found.'}
+                                     </div>
                                 ) : (
                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                         {evidenceData[m.id].map(ev => (
+                                         {evidenceData[m.id].map(ev => {
+                                             const displayVerified = ev.status === 'VERIFIED' || isOverridden;
+                                             return (
                                              <div key={ev.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(0,2fr)', gap: '16px', padding: '12px', background: 'white', border: '1px solid #cbd5e1', borderRadius: '6px', alignItems: 'center' }}>
                                                 <div>
                                                     <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ev.originalFileName}</div>
@@ -547,23 +573,23 @@ export default function GrantApplicationDetails() {
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                     <button onClick={() => handleViewEvidence(ev.id)} disabled={downloadingEvidenceId === ev.id} style={{ padding: '6px 12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>VIEW</button>
-                                                    <span style={{ fontSize: '11px', fontWeight: 700, padding: '4px 8px', borderRadius: '100px', background: ev.status === 'VERIFIED' ? '#dcfce7' : ev.status === 'REJECTED' ? '#fee2e2' : '#fef3c7', color: ev.status === 'VERIFIED' ? '#166534' : ev.status === 'REJECTED' ? '#991b1b' : '#92400e' }}>
-                                                        {ev.status}
+                                                    <span style={{ fontSize: '11px', fontWeight: 700, padding: '4px 8px', borderRadius: '100px', background: displayVerified ? '#dcfce7' : ev.status === 'REJECTED' ? '#fee2e2' : '#fef3c7', color: displayVerified ? '#166534' : ev.status === 'REJECTED' ? '#991b1b' : '#92400e' }}>
+                                                        {(isOverridden && ev.status !== 'VERIFIED') ? 'VERIFIED (OVERRIDE)' : ev.status}
                                                     </span>
                                                 </div>
-                                                {ev.status !== 'VERIFIED' && (
+                                                {!displayVerified && ev.status !== 'REJECTED' && (
                                                     <div style={{ display: 'flex', gap: '8px' }}>
-                                                        <input type="text" placeholder="Remarks (Required for Non-Compliant)" value={reviewRemarks[`ev_${ev.id}`]||''} onChange={e=>setReviewRemarks({...reviewRemarks, [`ev_${ev.id}`]: e.target.value})} style={{ flex: 1, padding: '6px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px' }} />
+                                                        <input type="text" placeholder="Type rejection remarks here..." value={reviewRemarks[`ev_${ev.id}`]||''} onChange={e=>setReviewRemarks({...reviewRemarks, [`ev_${ev.id}`]: e.target.value})} style={{ flex: 1, padding: '6px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px' }} />
                                                         <button onClick={() => handleVerifyEvidence(m.id, ev.id, 'VERIFIED')} disabled={actioning} style={{ padding: '6px 12px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 700 }}>APPROVE</button>
-                                                        <button onClick={() => handleVerifyEvidence(m.id, ev.id, 'NON_COMPLIANT')} disabled={actioning} style={{ padding: '6px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 700 }}>NON-COMPLIANT</button>
+                                                        <button onClick={() => handleVerifyEvidence(m.id, ev.id, 'REJECTED')} disabled={actioning} style={{ padding: '6px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 700 }}>REJECT</button>
                                                     </div>
                                                 )}
                                              </div>
-                                         ))}
+                                         )})}
                                      </div>
                                 )}
                             </div>
-                        ))}
+                        )})}
                     </div>
                 </div>
             )}

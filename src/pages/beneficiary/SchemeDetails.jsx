@@ -11,6 +11,7 @@ const SchemeDetails = () => {
     
     const [scheme, setScheme] = useState(null);
     const [criteria, setCriteria] = useState([]);
+    const [schemeDocuments, setSchemeDocuments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [eligibilityData, setEligibilityData] = useState({});
@@ -22,14 +23,16 @@ const SchemeDetails = () => {
     useEffect(() => {
         const load = async () => {
             try {
-                const [schemeData, criteriaData, cdData] = await Promise.all([
+                const [schemeData, criteriaData, cdData, docsData] = await Promise.all([
                     schemeService.getSchemeById(schemeId),
                     schemeService.getSchemeCriteria(schemeId, true),
-                    applicationService.getSchemeEligibility(schemeId).catch(() => null)
+                    applicationService.getSchemeEligibility(schemeId).catch(() => null),
+                    schemeService.getSchemeDocuments(schemeId).catch(() => [])
                 ]);
                 setScheme(schemeData);
                 setCriteria(criteriaData);
                 setCooldownData(cdData);
+                setSchemeDocuments(docsData);
                 const init = {};
                 criteriaData.forEach(c => { init[c.fieldName] = ''; });
                 setEligibilityData(init);
@@ -110,6 +113,86 @@ const SchemeDetails = () => {
                         </div>
                     ))}
                 </div>
+                
+                <div style={{ padding: '32px 28px', background: 'linear-gradient(to bottom right, #f8fafc, #f1f5f9)', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '40px' }}>
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                                <div style={{ background: '#e0e7ff', padding: '6px', borderRadius: '6px' }}>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                </div>
+                                <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', margin: 0 }}>Scheme Overview & Benefits</h3>
+                            </div>
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                                    <div style={{ background: '#dcfce7', padding: '6px', borderRadius: '50%', marginTop: '2px' }}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                    </div>
+                                    <div>
+                                        <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#334155', margin: '0 0 4px 0' }}>For Whom</h4>
+                                        <p style={{ fontSize: '14px', color: '#64748b', margin: 0, lineHeight: '1.5' }}>Designed for eligible {scheme.beneficiaryCategory?.toLowerCase() || 'beneficiaries'} to provide targeted financial assistance.</p>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                                    <div style={{ background: '#fef3c7', padding: '6px', borderRadius: '50%', marginTop: '2px' }}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                                    </div>
+                                    <div>
+                                        <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#334155', margin: '0 0 4px 0' }}>Benefits</h4>
+                                        <p style={{ fontSize: '14px', color: '#64748b', margin: 0, lineHeight: '1.5' }}>Supports direct financial grant up to <strong>₹{scheme.grantAmount?.toLocaleString('en-IN')}</strong> aimed at covering primary operational or situational expenses, enabling better growth and stability.</p>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                                    <div style={{ background: '#e0f2fe', padding: '6px', borderRadius: '50%', marginTop: '2px' }}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0284c7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                    </div>
+                                    <div>
+                                        <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#334155', margin: '0 0 4px 0' }}>How it Works</h4>
+                                        <p style={{ fontSize: '14px', color: '#64748b', margin: 0, lineHeight: '1.5' }}>
+                                            1. Fill application → 2. Upload mandatory documents → 3. Verification & Approval → 4. Receive funds
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                                <div style={{ background: '#fce7f3', padding: '6px', borderRadius: '6px' }}>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#db2777" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                                </div>
+                                <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', margin: 0 }}>Required Documents</h3>
+                            </div>
+                            
+                            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px' }}>
+                                {schemeDocuments && schemeDocuments.length > 0 ? (
+                                    <ul style={{ listStyleType: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        {schemeDocuments.map((doc, idx) => (
+                                            <li key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: idx !== schemeDocuments.length - 1 ? '12px' : '0', borderBottom: idx !== schemeDocuments.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+                                                    <span style={{ color: '#334155', fontWeight: '600', fontSize: '14px' }}>{doc.documentName || doc.documentType}</span>
+                                                </div>
+                                                {doc.mandatory ? 
+                                                    <span style={{ fontSize: '10px', color: '#b91c1c', background: '#fee2e2', padding: '4px 8px', borderRadius: '12px', fontWeight: '700', letterSpacing: '0.5px' }}>REQ</span> 
+                                                    : 
+                                                    <span style={{ fontSize: '10px', color: '#64748b', background: '#f1f5f9', padding: '4px 8px', borderRadius: '12px', fontWeight: '700', letterSpacing: '0.5px' }}>OPT</span>
+                                                }
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                                        <p style={{ fontSize: '14px', color: '#94a3b8', margin: 0 }}>No specific documents required.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Eligibility Form */}
@@ -119,6 +202,12 @@ const SchemeDetails = () => {
                         <h2>Eligibility Check & Application</h2>
                         <p style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>Fill in your details to check eligibility. Fields marked <span style={{ color: '#dc2626' }}>*</span> are mandatory.</p>
                         <p style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>Optional supporting documents are not required for submission. If provided and valid, they can contribute additional points to the eligibility score.</p>
+                        <div style={{ padding: '12px 16px', background: '#dbeafe', borderLeft: '4px solid #3b82f6', borderRadius: '4px', marginTop: '16px' }}>
+                            <p style={{ fontSize: '13px', color: '#1e3a8a', margin: 0, fontWeight: '500' }}>
+                                <strong style={{color: '#1e40af'}}>Instruction: </strong> 
+                                Please actively answer all required dropdowns. For any document-related questions below, select <strong>"Yes"</strong> if you possess it, otherwise select <strong>"No"</strong>.
+                            </p>
+                        </div>
                     </div>
                 </div>
                 <div className="portal-card-body">
@@ -202,6 +291,34 @@ const SchemeDetails = () => {
                                                     placeholder={`e.g. ${c.expectedValue || '0'}`}
                                                     required={c.mandatory}
                                                 />
+                                            ) : c.criterionName?.toLowerCase().includes('category eligibility') || c.fieldName === 'category' || c.fieldName === 'targetCategory' ? (
+                                                <select
+                                                    className="portal-input portal-select"
+                                                    value={eligibilityData[c.fieldName]}
+                                                    onChange={e => handleInput(c.fieldName, e.target.value)}
+                                                    required={c.mandatory}
+                                                >
+                                                    <option value="" disabled>Select Category...</option>
+                                                    <option value="FARMER">FARMER</option>
+                                                    <option value="STUDENT">STUDENT</option>
+                                                    <option value="MSME">MSME</option>
+                                                    <option value="WOMEN">WOMEN</option>
+                                                    <option value="GENERAL">GENERAL</option>
+                                                </select>
+                                            ) : c.criterionName?.toLowerCase().includes('education level') || c.fieldName === 'educationLevel' || c.fieldName === 'education' ? (
+                                                <select
+                                                    className="portal-input portal-select"
+                                                    value={eligibilityData[c.fieldName]}
+                                                    onChange={e => handleInput(c.fieldName, e.target.value)}
+                                                    required={c.mandatory}
+                                                >
+                                                    <option value="" disabled>Select Education Level...</option>
+                                                    <option value="Higher_Education">Higher_Education</option>
+                                                    <option value="UNDERGRADUATE">UNDERGRADUATE</option>
+                                                    <option value="POSTGRADUATE">POSTGRADUATE</option>
+                                                    <option value="SECONDARY">SECONDARY</option>
+                                                    <option value="PRIMARY">PRIMARY</option>
+                                                </select>
                                             ) : (
                                                 <input
                                                     type="text"
