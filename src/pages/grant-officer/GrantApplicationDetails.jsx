@@ -421,7 +421,30 @@ export default function GrantApplicationDetails() {
                                             Proof: {m.complianceType.replace('_', ' ')}
                                         </span>
                                     </div>
-                                    {m.remarks && <div style={{ marginTop: '8px', fontSize: '13px', color: '#94a3b8', fontStyle: 'italic' }}>Note: {m.remarks}</div>}
+                                    {m.remarks && m.status !== 'COMPLIANCE_SUBMITTED' && (
+                                        <div style={{ marginTop: '8px', fontSize: '13px', color: '#94a3b8', fontStyle: 'italic' }}>Note: {m.remarks}</div>
+                                    )}
+                                    {m.status === 'COMPLIANCE_SUBMITTED' && m.remarks && (
+                                        <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '12px', borderRadius: '8px' }}>
+                                                <div style={{ fontSize: '12px', fontWeight: 700, color: '#f59e0b', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <span>🟡</span> CURRENT SUBMISSION
+                                                </div>
+                                                <div style={{ color: '#475569', fontSize: '13px' }}>
+                                                    <span style={{ fontWeight: 600 }}>COMPLIANCE SUBMITTED</span> — Pending Review
+                                                </div>
+                                            </div>
+                                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '12px', borderRadius: '8px' }}>
+                                                <div style={{ fontSize: '12px', fontWeight: 700, color: '#ef4444', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <span>🔴</span> PREVIOUS REVIEW — NON-COMPLIANT
+                                                </div>
+                                                <div style={{ color: '#475569', fontSize: '13px' }}>
+                                                    <span style={{ fontWeight: 600, display: 'block', marginBottom: '2px' }}>Previous Officer Remarks:</span>
+                                                    <span style={{ fontStyle: 'italic' }}>{m.remarks}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                                 <div style={{ textAlign: 'right', marginLeft: '24px' }}>
                                     <div style={{ fontSize: '20px', fontWeight: 800, color: '#10b981', marginBottom: '12px' }}>{formatIndianCurrency(m.amount)}</div>
@@ -444,10 +467,16 @@ export default function GrantApplicationDetails() {
                                         <div style={{ color: '#ef4444', fontSize: '12px', fontWeight: 600, maxWidth: '120px', textAlign: 'right' }}>Mandatory condition unmet</div>
                                     ) : m.status === 'COMPLIANCE_SUBMITTED' ? (
                                         <div style={{ marginTop: '8px', textAlign: 'right' }}>
-                                            <div style={{ color: '#f59e0b', fontSize: '13px', fontWeight: 600, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
-                                                Pending Review
-                                            </div>
-                                            <button onClick={() => loadEvidence(m.id)} style={{ padding: '6px 12px', background: '#3b82f6', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                                            {!m.remarks && (
+                                                <div style={{ color: '#f59e0b', fontSize: '13px', fontWeight: 600, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                                                    Pending Review
+                                                </div>
+                                            )}
+                                            <button onClick={() => {
+                                                if (!evidenceData[m.id]) loadEvidence(m.id);
+                                                const el = document.getElementById(`evidence_review_${m.id}`);
+                                                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                            }} style={{ padding: '6px 12px', background: '#3b82f6', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
                                                 View Evidence
                                             </button>
                                         </div>
@@ -555,7 +584,7 @@ export default function GrantApplicationDetails() {
                         {plan.milestones.filter(m => m.complianceType === 'UTILIZATION_PROOF').map(m => {
                             const isOverridden = m.status === 'RELEASED' || m.status === 'COMPLETED';
                             return (
-                            <div key={`evidence_review_${m.id}`} style={{ background: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+                            <div key={`evidence_review_${m.id}`} id={`evidence_review_${m.id}`} style={{ background: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
                                 <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginBottom: '16px' }}>Milestone: {m.name}</div>
                                 {(!evidenceData[m.id] || evidenceData[m.id].length === 0) ? (
                                      <div style={{ fontSize: '14px', color: '#94a3b8', fontStyle: 'italic' }}>

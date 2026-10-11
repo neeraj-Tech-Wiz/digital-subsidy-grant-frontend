@@ -49,6 +49,34 @@ export const AuthProvider = ({ children }) => {
     return await authService.register(userData);
   };
 
+  const loginOtp = async (credentials) => {
+    return await authService.loginOtp(credentials);
+  };
+
+  const verifyOtp = async (payload) => {
+    const data = await authService.verifyOtp(payload);
+    setAuthToken(data.token);
+    const loggedInUser = {
+      userId: data.userId,
+      name: data.name,
+      email: data.email,
+      role: data.role,
+    };
+    setAuthUser(loggedInUser);
+    setToken(data.token);
+    setUser(loggedInUser);
+    setIsAuthenticated(true);
+    return loggedInUser;
+  };
+
+  const resendOtp = async (payload) => {
+    return await authService.resendOtp(payload);
+  };
+
+  const verifyRegistrationOtp = async (payload) => {
+    return await authService.verifyRegistrationOtp(payload);
+  };
+
   const logout = () => {
     clearAuthStorage();
     setToken(null);
@@ -62,7 +90,11 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated,
     loading,
     login,
+    loginOtp,
+    verifyOtp,
+    resendOtp,
     register,
+    verifyRegistrationOtp,
     logout,
   };
 

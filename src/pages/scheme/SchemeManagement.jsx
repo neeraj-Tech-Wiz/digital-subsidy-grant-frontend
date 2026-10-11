@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { FiGrid, FiDatabase, FiActivity, FiShield } from "react-icons/fi";
+import "../admin/Admin.css";
 import "./SchemeManagement.css";
 
 const API_URL = "http://localhost:8080/api/schemes";
@@ -550,8 +553,35 @@ function SchemeManagement() {
   // =====================================================
 
   return (
+    <div className="audit-layout" style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f1f5f9' }}>
+        <aside className="admin-sidebar" style={{ width: '260px', backgroundColor: '#0f172a', color: 'white', padding: '24px 0', flexShrink: 0 }}>
+            <div className="admin-brand" style={{ padding: '0 24px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '40px' }}>
+                <div className="brand-icon" style={{ background: 'var(--primary)', padding: '6px', borderRadius: '8px' }}>
+                    <FiShield size={20} color="white" />
+                </div>
+                <h2 style={{ fontSize: '18px', fontWeight: '700', letterSpacing: '-0.5px' }}>Admin Portal</h2>
+            </div>
+            
+            <div className="admin-sidebar-nav" style={{ padding: '0 16px' }}>
+                <div className="nav-section-title" style={{ fontSize: '11px', fontWeight: '800', color: '#475569', margin: '0 12px 12px', letterSpacing: '1px' }}>OVERVIEW</div>
+                <Link to="/admin/dashboard" className="admin-nav-item">
+                    <FiGrid className="nav-icon" /> Dashboard
+                </Link>
 
-    <div className="scheme-management-page">
+                <div className="nav-section-title mt-4" style={{ fontSize: '11px', fontWeight: '800', color: '#475569', margin: '24px 12px 12px', letterSpacing: '1px' }}>OPERATIONS</div>
+                <Link to="/admin/schemes" className="admin-nav-item active">
+                    <FiDatabase className="nav-icon" /> Scheme Management
+                </Link>
+
+                <div className="nav-section-title mt-4" style={{ fontSize: '11px', fontWeight: '800', color: '#475569', margin: '24px 12px 12px', letterSpacing: '1px' }}>MONITORING</div>
+                <Link to="/admin/audit" className="admin-nav-item">
+                    <FiActivity className="nav-icon" /> Activity & Audit Log
+                </Link>
+            </div>
+        </aside>
+
+        <main className="admin-main" style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
+            <div className="scheme-management-page">
 
       {/* ================= HEADER ================= */}
 
@@ -1182,6 +1212,10 @@ function SchemeManagement() {
 
 
         {/* =====================================================
+          END OF MODALS
+      ===================================================== */}
+
+        {/* =====================================================
             SCHEME TABLE
         ===================================================== */}
 
@@ -1416,7 +1450,8 @@ function SchemeManagement() {
         </div>
 
       </div>
-
+      </div>
+        </main>
     </div>
   );
 }

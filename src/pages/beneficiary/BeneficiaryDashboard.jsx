@@ -5,6 +5,7 @@ import { applicationService } from '../../services/applicationService';
 import { formatIndianCurrency } from '../../utils/currencyFormatting';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import Chatbot from '../../components/common/Chatbot';
 
 const BeneficiaryDashboard = () => {
     const { user } = useAuth();
@@ -241,6 +242,9 @@ const BeneficiaryDashboard = () => {
                     </div>
                 </div>
             </div>
+            
+            {/* Beneficiary Chatbot Widget */}
+            <Chatbot />
         </div>
     );
 };

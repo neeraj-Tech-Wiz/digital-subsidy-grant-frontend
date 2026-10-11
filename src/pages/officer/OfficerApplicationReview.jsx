@@ -355,6 +355,9 @@ function OfficerApplicationReview() {
                                     <strong>{hist.officerName}</strong> ({hist.officerRole})<br />
                                     <span style={{ color: '#3b82f6', fontWeight: 600 }}>{hist.action}</span><br />
                                     <span style={{ color: '#64748b' }}>{hist.remarks}</span>
+                                    {hist.amount != null && <><br /><span style={{ color: '#10b981', fontWeight: 600 }}>Amount: ₹{hist.amount.toLocaleString('en-IN')}</span></>}
+                                    {hist.milestoneId != null && <><br /><span style={{ color: '#8b5cf6', fontWeight: 600 }}>Milestone ID: {hist.milestoneId}</span></>}
+                                    {hist.newStatus && <><br /><span style={{ color: '#475569', fontSize: '13px' }}>State changed to: <strong>{hist.newStatus}</strong></span></>}
                                 </div>
                             </div>
                         ))}

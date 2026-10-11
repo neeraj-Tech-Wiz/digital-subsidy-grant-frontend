@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Link } from "react-router-dom";
 
 // Auth
 import Login from "../pages/auth/Login";
@@ -15,12 +15,14 @@ import BeneficiaryProfile from "../pages/beneficiary/BeneficiaryProfile";
 
 // Admin & Officer Dashboards
 import AdminDashboard from "../pages/admin/AdminDashboard";
+import AuditLog from "../pages/admin/AuditLog";
 import OfficerDashboard from "../pages/officer/OfficerDashboard";
 import OfficerApplicationReview from "../pages/officer/OfficerApplicationReview";
 
 // Common
 import Unauthorized from "../pages/common/Unauthorized";
 import NotFound from "../pages/common/NotFound";
+import SchemeManagement from "../pages/scheme/SchemeManagement";
 
 // Grant Officer Pages
 import GrantOfficerLayout from "../layouts/GrantOfficerLayout";
@@ -57,8 +59,8 @@ function Home() {
           <h2>Digital Subsidy <span>Platform</span></h2>
         </div>
         <nav className="home-nav-buttons">
-          <a href="/login" className="login-btn">Sign In</a>
-          <a href="/register" className="register-btn-home">Get Started</a>
+          <Link to="/login" className="login-btn">Sign In</Link>
+          <Link to="/register" className="register-btn-home">Get Started</Link>
         </nav>
       </header>
 
@@ -79,8 +81,8 @@ function Home() {
             subsidies — powered by secure JWT authentication and intelligent eligibility workflows.
           </p>
           <div className="hero-buttons">
-            <a href="/register" className="primary-btn">Apply for a Scheme</a>
-            <a href="/login" className="secondary-btn">Sign In to Portal</a>
+            <Link to="/register" className="primary-btn">Apply for a Scheme</Link>
+            <Link to="/login" className="secondary-btn">Sign In to Portal</Link>
           </div>
           <div className="hero-stats">
             <div className="hero-stat">
@@ -184,6 +186,26 @@ function AppRoutes() {
           <ProtectedRoute>
             <RoleBasedRoute allowedRoles={["ADMIN"]}>
               <AdminDashboard />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/audit"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute allowedRoles={["ADMIN"]}>
+              <AuditLog />
+            </RoleBasedRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/schemes"
+        element={
+          <ProtectedRoute>
+            <RoleBasedRoute allowedRoles={["ADMIN"]}>
+              <SchemeManagement />
             </RoleBasedRoute>
           </ProtectedRoute>
         }

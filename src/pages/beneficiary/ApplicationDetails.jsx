@@ -219,6 +219,20 @@ const ApplicationDetails = () => {
                 timeline.push({ title: 'Application Rejected', description: 'Your application was unfortunately rejected.', remarks: h.remarks, timestamp: time, state: 'REJECTED' });
             } else if (h.action === 'ESCALATION_REVIEWED') {
                 timeline.push({ title: 'Level 3 Escalation', description: 'Escalation review completed.', timestamp: time, state: 'COMPLETED' });
+            } else if (h.action === 'DISBURSEMENT_PLAN_CREATED') {
+                timeline.push({ title: 'Disbursement Plan Configured', description: 'Financial plan has been set up.', timestamp: time, state: 'COMPLETED' });
+            } else if (h.action === 'MILESTONE_RELEASED') {
+                timeline.push({ title: 'Fund Released', description: `An amount of ₹${h.amount ? h.amount.toLocaleString('en-IN') : h.amount} was released (Milestone ${h.milestoneId || 'N/A'}).`, remarks: h.remarks, timestamp: time, state: 'COMPLETED' });
+            } else if (h.action === 'UTILIZATION_PROOF_SUBMITTED') {
+                timeline.push({ title: 'Evidence Submitted', description: 'Utilization evidence submitted.', timestamp: time, state: 'COMPLETED' });
+            } else if (h.action === 'UTILIZATION_PROOF_VERIFIED') {
+                timeline.push({ title: 'Evidence Verified', description: 'Utilization evidence verified by Grant Officer.', timestamp: time, state: 'COMPLETED' });
+            } else if (h.action === 'UTILIZATION_PROOF_NON_COMPLIANT') {
+                timeline.push({ title: 'Evidence Rejected', description: 'Utilization evidence marked non-compliant.', remarks: h.remarks, timestamp: time, state: 'REJECTED' });
+            } else if (h.action === 'BANKING_DOCUMENT_VERIFIED') {
+                timeline.push({ title: 'Banking Details Verified', description: 'Banking details have been successfully verified.', timestamp: time, state: 'COMPLETED' });
+            } else if (h.action === 'BANKING_DOCUMENT_REJECTED') {
+                timeline.push({ title: 'Banking Details Rejected', description: 'Banking details rejected.', remarks: h.remarks, timestamp: time, state: 'REJECTED' });
             }
         });
 
