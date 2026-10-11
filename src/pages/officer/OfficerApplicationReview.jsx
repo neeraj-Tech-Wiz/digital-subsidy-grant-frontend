@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { verificationService } from '../../services/verificationService';
+import { API_BASE_URL } from '../../api/axiosInstance';
 
 const STATUS_CONFIG = {
     DOCUMENTS_PENDING: { label: 'Documents Pending', color: '#eab308' },
@@ -108,7 +109,7 @@ function OfficerApplicationReview() {
     const handleDocumentAction = async (documentId, fileName, action) => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`http://localhost:8080/api/documents/${documentId}`, {
+            const response = await fetch(`${API_BASE_URL}/api/documents/${documentId}`, {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${token}` }
             });

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { API_BASE_URL } from "../../api/axiosInstance";
 
 function Register({ onRegistered, onBack }) {
   const [formData, setFormData] = useState({
@@ -25,7 +26,7 @@ function Register({ onRegistered, onBack }) {
 
     try {
       const response = await fetch(
-        "http://localhost:8080/api/auth/register",
+        `${API_BASE_URL}/api/auth/register`,
         {
           method: "POST",
           headers: {

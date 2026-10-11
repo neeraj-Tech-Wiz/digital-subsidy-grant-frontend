@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { FiGrid, FiDatabase, FiActivity, FiShield } from "react-icons/fi";
+import { API_BASE_URL } from "../../api/axiosInstance";
 import "../admin/Admin.css";
 import "./SchemeManagement.css";
 
-const API_URL = "http://localhost:8080/api/schemes";
+const API_URL = `${API_BASE_URL}/api/schemes`;
 
 function SchemeManagement() {
   const [schemes, setSchemes] = useState([]);

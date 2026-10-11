@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { API_BASE_URL } from "../../api/axiosInstance";
 import "./SchemeList.css";
 
 function SchemeList() {
@@ -31,7 +32,7 @@ function SchemeList() {
         }
 
         const response = await fetch(
-          "http://localhost:8080/api/schemes/active",
+          `${API_BASE_URL}/api/schemes/active`,
           {
             method: "GET",
             headers: {
@@ -183,7 +184,7 @@ function SchemeList() {
       // =========================
 
       const response = await fetch(
-        `http://localhost:8080/api/applications/apply/${beneficiaryId}/${selectedScheme.id}`,
+        `${API_BASE_URL}/api/applications/apply/${beneficiaryId}/${selectedScheme.id}`,
         {
           method: "POST",
 

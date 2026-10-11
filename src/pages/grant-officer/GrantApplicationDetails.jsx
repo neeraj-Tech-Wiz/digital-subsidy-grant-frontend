@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import grantService from "../../services/grantService";
+import { API_BASE_URL } from "../../api/axiosInstance";
 import { documentService } from "../../services/documentService";
 import { formatIndianCurrency } from "../../utils/currencyFormatting";
 
@@ -163,7 +164,7 @@ export default function GrantApplicationDetails() {
             }
 
             // Fetch Scheme
-            const schemesRes = await fetch('http://localhost:8080/api/schemes');
+            const schemesRes = await fetch(`${API_BASE_URL}/api/schemes`);
             const schemes = await schemesRes.json();
             const scheme = schemes.find(s => s.schemeName === app.schemeName);
             

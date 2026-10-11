@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { API_BASE_URL } from "../../api/axiosInstance";
 
 function BeneficiaryRegistration() {
   const [formData, setFormData] = useState({
@@ -35,7 +36,7 @@ function BeneficiaryRegistration() {
       }
 
       const response = await fetch(
-        "http://localhost:8080/api/beneficiaries",
+        `${API_BASE_URL}/api/beneficiaries`,
         {
           method: "POST",
 

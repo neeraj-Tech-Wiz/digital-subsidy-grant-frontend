@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { API_BASE_URL } from "../../api/axiosInstance";
 
 function Login({ onLoginSuccess, onBack }) {
   const [formData, setFormData] = useState({
@@ -24,7 +25,7 @@ function Login({ onLoginSuccess, onBack }) {
 
     try {
       const response = await fetch(
-        "http://localhost:8080/api/auth/login",
+        `${API_BASE_URL}/api/auth/login`,
         {
           method: "POST",
           headers: {
